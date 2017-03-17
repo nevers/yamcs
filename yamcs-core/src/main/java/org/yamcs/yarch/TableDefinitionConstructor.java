@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.yamcs.ConfigurationException;
 import org.yamcs.yarch.PartitioningSpec._type;
 import org.yamcs.yarch.TableDefinition.PartitionStorage;
 import org.yamcs.yarch.streamsql.StreamSqlException;
@@ -94,7 +95,7 @@ public class TableDefinitionConstructor  extends Constructor {
             if(m.containsKey(K_storageEngine)) {
                 tdef.setStorageEngineName((String)m.get(K_storageEngine));
             } else {//before the storageEngine has been invented, we only had TokyoCabinet, so assume that if it's not set then TokyoCabine is used
-                tdef.setStorageEngineName(YarchDatabase.TC_ENGINE_NAME);
+                throw new ConfigurationException("Tokycabinet tables not supported anymore. Please use an older version of yamcs to recover the data");
             }
             
             if(m.containsKey(K_partitionStorage)) {
