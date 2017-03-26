@@ -42,7 +42,7 @@ public class SimulationPpProviderTest {
 		SimulationPpProvider target = new SimulationPpProvider();
 
 		// Act
-		PpSimulation ppSimulation = target.LoadSimulationData(fileName);
+		PpSimulation ppSimulation = target.loadSimulationData(fileName);
 
 		// Assert
 		assertTrue(ppSimulation != null);
@@ -87,13 +87,13 @@ public class SimulationPpProviderTest {
 				return true;
 			}
 		};
-		target.SetSimulationData(DATA_SCENARIO1);
+		target.setSimulationData(DATA_SCENARIO1);
 		FakePpListener ppListener = new FakePpListener();
 		target.setParameterSink(ppListener);
 		target.enable();
 
 		// Act
-		target.ProcessSimulationData();
+		target.processSimulationData();
 
 		// Assert
 		assertTrue(ppListener.receivedValue.size() == 21);
@@ -143,13 +143,13 @@ public class SimulationPpProviderTest {
 				return true;
 			}
 		};
-		target.SetSimulationData(DATA_SCENARIO2);
+		target.setSimulationData(DATA_SCENARIO2);
 		FakePpListener ppListener = new FakePpListener();
 		target.setParameterSink(ppListener);
 		target.enable();
 
 		// Act
-		target.ProcessSimulationData();
+		target.processSimulationData();
 
 		// Assert
 		assertTrue(ppListener.receivedValue.size() == 52);
@@ -165,14 +165,14 @@ public class SimulationPpProviderTest {
 				return true;
 			}
 		};
-		target.SetSimulationData(DATA_SCENARIO_DATE);
+		target.setSimulationData(DATA_SCENARIO_DATE);
 		FakePpListener ppListener = new FakePpListener();
 		target.setParameterSink(ppListener);
 		target.enable();
 
 		// Act
 		long dateStart = TimeEncoding.getWallclockTime();
-		target.ProcessSimulationData();
+		target.processSimulationData();
 		long dateEnd = TimeEncoding.getWallclockTime();
 
 		// Assert
