@@ -383,15 +383,20 @@ public class RestRequest {
     
     
     public static MediaType deriveTargetContentType(HttpRequest httpRequest) {
+        MediaType mt = MediaType.JSON;
         if (httpRequest.headers().contains(HttpHeaderNames.ACCEPT)) {
             String acceptedContentType = httpRequest.headers().get(HttpHeaderNames.ACCEPT);
-            return MediaType.from(acceptedContentType);
+            mt =  MediaType.from(acceptedContentType);
         } else if (httpRequest.headers().contains(HttpHeaderNames.CONTENT_TYPE)) {
             String declaredContentType = httpRequest.headers().get(HttpHeaderNames.CONTENT_TYPE);
-            return MediaType.from(declaredContentType);
+            mt =  MediaType.from(declaredContentType);
         }
-        //if none of accept or content_type specified, just assume JSON
-        return MediaType.JSON;
+        
+        //we only support one of these two for the output, so just force JSON by default        
+        if(mt!=MediaType.JSON || mt!=MediaType.PROTOBUF) {
+            mt = MediaType.JSON;
+        }
+        return mt;
     }
     
     public String getBaseURL() {

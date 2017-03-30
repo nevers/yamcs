@@ -65,7 +65,6 @@ public class WebSocketFrameHandler extends SimpleChannelInboundHandler<WebSocket
 
     @Override
     public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
-        System.out.println("--------- mark 1 in handlerAdded");
         this.ctx = ctx;
         channel = ctx.channel();
 
@@ -88,7 +87,6 @@ public class WebSocketFrameHandler extends SimpleChannelInboundHandler<WebSocket
                 processorClient.registerResource(provider.getRoute(), resource);
             }
         }
-        System.out.println("--------- mark 2 in handlerAdded");
     }
 
     @Override

@@ -15,7 +15,7 @@ public final class MediaType {
     public static final MediaType JSON = new MediaType("application/json");
     public static final MediaType PROTOBUF = new MediaType("application/protobuf");
     public static final MediaType PLAIN_TEXT = new MediaType("plain/text");
-    public static final MediaType FORM_ENCODED = new MediaType("application/x-www-form-urlencoded");
+    public static final MediaType ANY = new MediaType("*/*");
 
     private final String typeString;
     
