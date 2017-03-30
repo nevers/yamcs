@@ -393,7 +393,7 @@ public class RestRequest {
         }
         
         //we only support one of these two for the output, so just force JSON by default        
-        if(mt!=MediaType.JSON || mt!=MediaType.PROTOBUF) {
+        if(mt!=MediaType.JSON && mt!=MediaType.PROTOBUF) {
             mt = MediaType.JSON;
         }
         return mt;

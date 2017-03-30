@@ -91,7 +91,6 @@ public class WebSocketFrameHandler extends SimpleChannelInboundHandler<WebSocket
 
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
-        System.out.println("in event triggered");
         if (evt == ServerHandshakeStateEvent.HANDSHAKE_COMPLETE) {
             log.info("{} {} {}", originalRequestInfo.getMethod(), originalRequestInfo.getUri(), HttpResponseStatus.SWITCHING_PROTOCOLS.code());
 
