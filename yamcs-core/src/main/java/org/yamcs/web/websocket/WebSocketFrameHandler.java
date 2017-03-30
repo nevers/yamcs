@@ -22,7 +22,7 @@ import io.netty.buffer.ByteBufInputStream;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
-import io.netty.handler.codec.http.HttpHeaders;
+import io.netty.handler.codec.http.HttpHeaderNames;
 import io.netty.handler.codec.http.HttpResponseStatus;
 import io.netty.handler.codec.http.websocketx.BinaryWebSocketFrame;
 import io.netty.handler.codec.http.websocketx.TextWebSocketFrame;
@@ -65,14 +65,15 @@ public class WebSocketFrameHandler extends SimpleChannelInboundHandler<WebSocket
 
     @Override
     public void handlerAdded(ChannelHandlerContext ctx) throws Exception {
+        System.out.println("--------- mark 1 in handlerAdded");
         this.ctx = ctx;
         channel = ctx.channel();
 
         // Try to use an application name as provided by the client. For browsers (since overriding
         // websocket headers is not supported) this will be the browser's standard user-agent string
         String applicationName;
-        if (originalRequestInfo.getHeaders().contains(HttpHeaders.Names.USER_AGENT)) {
-            applicationName = originalRequestInfo.getHeaders().get(HttpHeaders.Names.USER_AGENT);
+        if (originalRequestInfo.getHeaders().contains(HttpHeaderNames.USER_AGENT)) {
+            applicationName = originalRequestInfo.getHeaders().get(HttpHeaderNames.USER_AGENT);
         } else {
             applicationName = "Unknown (" + channel.remoteAddress() +")";
         }
@@ -87,10 +88,12 @@ public class WebSocketFrameHandler extends SimpleChannelInboundHandler<WebSocket
                 processorClient.registerResource(provider.getRoute(), resource);
             }
         }
+        System.out.println("--------- mark 2 in handlerAdded");
     }
 
     @Override
     public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
+        System.out.println("in event triggered");
         if (evt == ServerHandshakeStateEvent.HANDSHAKE_COMPLETE) {
             log.info("{} {} {}", originalRequestInfo.getMethod(), originalRequestInfo.getUri(), HttpResponseStatus.SWITCHING_PROTOCOLS.code());
 
@@ -103,6 +106,7 @@ public class WebSocketFrameHandler extends SimpleChannelInboundHandler<WebSocket
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, WebSocketFrame frame) throws Exception {
+        System.out.println(" mark 10 in channelRead frame: "+frame);
         try {
             try {
                 log.debug("Received frame {}", frame);

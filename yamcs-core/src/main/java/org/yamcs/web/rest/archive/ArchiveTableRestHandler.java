@@ -1,16 +1,24 @@
 package org.yamcs.web.rest.archive;
 
+import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
+
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.yamcs.api.MediaType;
 import org.yamcs.protobuf.Archive.TableData;
 import org.yamcs.protobuf.Archive.TableData.TableRecord;
 import org.yamcs.protobuf.Archive.TableInfo;
 import org.yamcs.protobuf.Rest.ListTablesResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.yamcs.protobuf.SchemaArchive;
 import org.yamcs.protobuf.SchemaRest;
 import org.yamcs.web.BadRequestException;
+import org.yamcs.web.HttpContentToByteBufDecoder;
 import org.yamcs.web.HttpException;
+import org.yamcs.web.HttpRequestHandler;
 import org.yamcs.web.rest.RestHandler;
 import org.yamcs.web.rest.RestRequest;
 import org.yamcs.web.rest.RestStreamSubscriber;
@@ -21,6 +29,13 @@ import org.yamcs.yarch.Stream;
 import org.yamcs.yarch.TableDefinition;
 import org.yamcs.yarch.Tuple;
 import org.yamcs.yarch.YarchDatabase;
+
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelPipeline;
+import io.netty.handler.codec.http.HttpRequest;
+import io.netty.handler.codec.protobuf.ProtobufDecoder;
+import io.netty.handler.codec.protobuf.ProtobufVarint32FrameDecoder;
+import io.netty.channel.SimpleChannelInboundHandler;
 
 public class ArchiveTableRestHandler extends RestHandler {
     
@@ -90,7 +105,47 @@ public class ArchiveTableRestHandler extends RestHandler {
                 completeOK(req, responseb.build(), SchemaArchive.TableData.WRITE);
             }
         });
+    }
+    
+    @Route(path = "/api/archive/:instance/tables/:name/data", method = "POST", dataLoad = true)
+    public void loadTableData(ChannelHandlerContext ctx, HttpRequest req) throws HttpException {
+        MediaType contentType = RestRequest.deriveSourceContentType(req);
+        if(contentType!=MediaType.PROTOBUF) {
+            throw new BadRequestException("Invalid Content-Type "+contentType+" for table load; please use "+MediaType.PROTOBUF);
+        }
         
-       
+        ChannelPipeline pipeline = ctx.pipeline();
+        
+        pipeline.addLast("bytebufextractor", new HttpContentToByteBufDecoder());
+        pipeline.addLast("frameDecoder", new ProtobufVarint32FrameDecoder());
+        pipeline.addLast("protobufDecoder", new ProtobufDecoder(TableRecord.getDefaultInstance()));
+        pipeline.addLast("loader", new TableLoader(req));
+    }
+    
+    static class TableLoader extends SimpleChannelInboundHandler<TableRecord>  {
+        private static final Logger log = LoggerFactory.getLogger(TableLoader.class);
+        int count =0;
+        private HttpRequest req;
+        
+        public TableLoader(HttpRequest req) {
+            this.req = req;
+        }
+
+        @Override
+        protected void channelRead0(ChannelHandlerContext ctx, TableRecord msg)  throws Exception {
+            System.out.println("In table loader msg: "+count);
+            count++;
+        }
+        @Override
+        public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+            log.warn("Exception caught in the table load pipeline, closing the connection: {}", cause.getMessage());
+            ctx.pipeline().close();
+        }
+        @Override
+        public void userEventTriggered(ChannelHandlerContext ctx, Object obj) throws Exception {
+            if(obj == HttpRequestHandler.CONTENT_FINISHED_EVENT) {
+                HttpRequestHandler.sendOK(ctx, req, "inserted "+count+" records\r\n");
+            }
+        }
     }
 }
