@@ -113,7 +113,7 @@ public class SimulationPpProvider extends AbstractExecutionThreadService impleme
     //
     @Override
     public void run() {
-        while (isRunning()) {
+        while (IsRunning()) {
             try {
                 if (!disabled) {
                     // run simulation
@@ -133,6 +133,10 @@ public class SimulationPpProvider extends AbstractExecutionThreadService impleme
         }
     }
 
+    boolean IsRunning() {
+        return isRunning();
+    }
+    
     // ////
     // ProcessSimulationData()
     // Process the speceificed simulation scenario
@@ -168,7 +172,7 @@ public class SimulationPpProvider extends AbstractExecutionThreadService impleme
             for (ParameterSequence ps : pss) {
                 processParameterSequence(ps);
             }
-            if (!isRunning() || disabled) {
+            if (!IsRunning() || disabled) {
                 break;
             }
         } while (loopSimulation);
@@ -187,7 +191,7 @@ public class SimulationPpProvider extends AbstractExecutionThreadService impleme
         // repeat the sequence as specified
         while (loopSequence || repeatCount++ < maxRepeat) {
 
-            if (!isRunning() || disabled)
+            if (!IsRunning() || disabled)
                 break;
 
             // process step offset
@@ -208,7 +212,7 @@ public class SimulationPpProvider extends AbstractExecutionThreadService impleme
             // process each step of the sequence
             for (int sequenceStep = 0; sequenceStep <= lastSequenceStep; sequenceStep++) {
 
-                if (!isRunning() || disabled)
+                if (!IsRunning() || disabled)
                     break;
 
                 ParameterSequence.Parameter currentParameter = parameters
@@ -250,7 +254,7 @@ public class SimulationPpProvider extends AbstractExecutionThreadService impleme
         List<ParameterValue> pvs = new LinkedList<ParameterValue>();
         for (ParameterSequence.Parameter sParameter : stepParameters) {
 
-            if (!isRunning() || disabled)
+            if (!IsRunning() || disabled)
                 break;
 
             // compute value
