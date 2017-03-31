@@ -44,7 +44,10 @@ public class Privilege {
         MayCommand,
         MayGetMissionDatabase,
         MayControlArchiving,
-        MayControlServices
+        MayControlServices,
+        MayReadTables,
+        MayWriteTables,
+        
     }
 
     private static String authModuleName;
