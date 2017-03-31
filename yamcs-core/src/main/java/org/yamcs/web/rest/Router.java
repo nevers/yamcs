@@ -31,6 +31,7 @@ import org.yamcs.protobuf.Rest.GetApiOverviewResponse.RouteInfo;
 import org.yamcs.protobuf.SchemaRest;
 import org.yamcs.security.AuthenticationToken;
 import org.yamcs.web.BadRequestException;
+import org.yamcs.web.ForbiddenException;
 import org.yamcs.web.HttpException;
 import org.yamcs.web.HttpRequestHandler;
 import org.yamcs.web.InternalServerErrorException;
@@ -214,13 +215,13 @@ public class Router extends SimpleChannelInboundHandler<FullHttpRequest> {
             if(rc.isDataLoad()) {
                 try {
                     RouteHandler target = match.routeConfig.routeHandler;
-                    match.routeConfig.handle.invoke(target, ctx, req);
+                    match.routeConfig.handle.invoke(target, ctx, req, match);
                     if (HttpUtil.is100ContinueExpected(req)) {
                         ctx.writeAndFlush(CONTINUE.retainedDuplicate());
                     }
-                } catch (BadRequestException e) {
+                } catch (HttpException e) {
                     log.warn("Error invoking data load handler on URI '{}': {}", req.uri(), e.getMessage());
-                    HttpRequestHandler.sendPlainTextError(ctx, req, HttpResponseStatus.BAD_REQUEST, e.getMessage());
+                    HttpRequestHandler.sendPlainTextError(ctx, req, e.getStatus(), e.getMessage());
                 } catch(Throwable t) {
                     log.error("Error invoking data load handler on URI: '{}'", req.uri(), t);
                     HttpRequestHandler.sendPlainTextError(ctx, req, HttpResponseStatus.BAD_REQUEST);
@@ -426,6 +427,10 @@ public class Router extends SimpleChannelInboundHandler<FullHttpRequest> {
         
         public RouteConfig getRouteConfig() {
             return routeConfig;
+        }
+
+        public String getRouteParam(String name) {
+            return regexMatch.group(name);
         }
     }
 

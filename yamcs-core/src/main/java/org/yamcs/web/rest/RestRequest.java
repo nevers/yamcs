@@ -79,7 +79,7 @@ public class RestRequest {
     }
     
     public String getRouteParam(String name) {
-        return routeMatch.regexMatch.group(name);
+        return routeMatch.getRouteParam(name);
     }
     
     /**

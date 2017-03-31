@@ -286,4 +286,12 @@ public class RestClient {
     public List<Cookie> getCookies() {
         return httpClient.getCookies();
     }
+
+    public CompletableFuture<BulkRestDataSender> doBulkSendRequest(String resource, HttpMethod method) {
+        try {
+            return httpClient.doBulkSendRequest(connectionProperties.getRestApiUrl()+resource, method, connectionProperties.getAuthenticationToken());
+        } catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
+    }
 }
