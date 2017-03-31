@@ -14,7 +14,10 @@ import org.junit.Test;
 import org.yamcs.api.MediaType;
 import org.yamcs.api.YamcsApiException;
 import org.yamcs.api.rest.BulkRestDataReceiver;
+import org.yamcs.api.rest.BulkRestDataSender;
 import org.yamcs.api.ws.WebSocketRequest;
+import org.yamcs.protobuf.Archive.ColumnData;
+import org.yamcs.protobuf.Archive.TableData.TableRecord;
 import org.yamcs.protobuf.Pvalue.ParameterData;
 import org.yamcs.protobuf.Pvalue.ParameterValue;
 import org.yamcs.protobuf.Rest.CreateProcessorRequest;
@@ -22,12 +25,17 @@ import org.yamcs.protobuf.Rest.EditClientRequest;
 import org.yamcs.protobuf.SchemaRest;
 import org.yamcs.protobuf.Yamcs.ArchiveRecord;
 import org.yamcs.protobuf.Yamcs.NamedObjectList;
+import org.yamcs.protobuf.Yamcs.Value;
+import org.yamcs.protobuf.Yamcs.Value.Type;
 import org.yamcs.protobuf.YamcsManagement.ClientInfo;
 import org.yamcs.utils.TimeEncoding;
 import org.yamcs.web.websocket.ParameterResource;
 
 import com.google.protobuf.InvalidProtocolBufferException;
 
+import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufOutputStream;
+import io.netty.buffer.Unpooled;
 import io.netty.handler.codec.http.HttpMethod;
 
 
@@ -47,7 +55,7 @@ public class ArchiveIntegrationTest extends AbstractIntegrationTest {
     public void testReplay() throws Exception {
         generateData("2015-01-01T10:00:00", 3600);
         restClient.setAcceptMediaType(MediaType.JSON);
-        
+
         ClientInfo cinfo = getClientInfo();
         //create a parameter replay via REST
         CreateProcessorRequest prequest = CreateProcessorRequest.newBuilder()
@@ -100,7 +108,7 @@ public class ArchiveIntegrationTest extends AbstractIntegrationTest {
         assertEquals(8, arlist.size());
 
         response = restClient.doRequest("/archive/IntegrationTest/indexes/packets?start=2035-01-02T00:00:00", HttpMethod.GET, "").get();
-        
+
         assertTrue(response.isEmpty());
     }
 
@@ -144,5 +152,66 @@ public class ArchiveIntegrationTest extends AbstractIntegrationTest {
         respDl = restClient.doRequest("/archive/IntegrationTest/parameters/REFMDB/ccsds-apid?start=2015-02-02T10:10:00&norepeat=false&limit=3", HttpMethod.GET, "").get();
         pdata = fromJson(respDl, org.yamcs.protobuf.SchemaPvalue.ParameterData.MERGE).build();
         assertEquals(3, pdata.getParameterCount());
+    }
+
+
+    @Test
+    public void testDataLoadDump() throws Exception {
+        restClient.setAcceptMediaType(MediaType.PROTOBUF);
+        restClient.setSendMediaType(MediaType.PROTOBUF); 
+        CompletableFuture<BulkRestDataSender> cf = restClient.doBulkSendRequest("/archive/IntegrationTest/tables/table1/data", HttpMethod.POST);
+        BulkRestDataSender brds = cf.get();
+        System.out.println("got brds: "+brds);
+
+
+        for(int i=0;i<100; i++) {
+            ByteBuf buf = Unpooled.buffer();
+            ByteBufOutputStream bufstream = new ByteBufOutputStream(buf);
+            TableRecord tr = TableRecord.newBuilder()
+                    .addColumn(ColumnData.newBuilder().setName("c1").setValue(Value.newBuilder().setType(Type.SINT32).setSint32Value(i).build()))
+                    .addColumn(ColumnData.newBuilder().setName("c1").setValue(Value.newBuilder().setType(Type.STRING).setStringValue("test "+i).build()))
+                    .build();
+            tr.writeDelimitedTo(bufstream);
+            brds.sendData(buf);
+            if(i>100) Thread.sleep(1000);
+        }
+        String resp = new String(brds.completeRequest().get());
+        System.out.println("got response: " +resp);
+
+        assertTrue(resp.contains("100 records"));
+    }
+
+
+
+    @Test
+    public void testDataLoadWithInvalidRecord() throws Exception {
+        restClient.setAcceptMediaType(MediaType.PROTOBUF);
+        restClient.setSendMediaType(MediaType.PROTOBUF); 
+        CompletableFuture<BulkRestDataSender> cf = restClient.doBulkSendRequest("/archive/IntegrationTest/tables/table1/data", HttpMethod.POST);
+        BulkRestDataSender brds = cf.get();
+        Exception e1 = null;
+
+        try {
+            for(int i=0;i<100; i++) {
+                if(i!=50) {
+                    ByteBuf buf = Unpooled.buffer();
+                    ByteBufOutputStream bufstream = new ByteBufOutputStream(buf);
+                    TableRecord tr = TableRecord.newBuilder()
+                            .addColumn(ColumnData.newBuilder().setName("c1").setValue(Value.newBuilder().setType(Type.SINT32).setSint32Value(i).build()))
+                            .addColumn(ColumnData.newBuilder().setName("c1").setValue(Value.newBuilder().setType(Type.STRING).setStringValue("test "+i).build()))
+                            .build();
+                    tr.writeDelimitedTo(bufstream);
+                    brds.sendData(buf);
+                    bufstream.close();
+                } else { //send an invalid record after 50 correct ones
+                    brds.sendData(Unpooled.wrappedBuffer(new byte[]{2,3,4,4,4}));
+                }
+            }
+            brds.completeRequest().get();
+        } catch (Exception e) {
+            e1 = e;
+        }
+        assertNotNull(e1);
+        assertTrue(e1.getMessage().contains("Error after inserting 50 records"));
     }
 }
