@@ -295,7 +295,8 @@ public class HttpClient {
         ByteBuf content = (body==null)? Unpooled.EMPTY_BUFFER:Unpooled.copiedBuffer(body);
         HttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, httpMethod, getPathWithQuery(uri), content);
         fillInHeaders(request, uri, authToken);
-        HttpUtil.setContentLength(request, body.length);
+        int length = body==null?0:body.length;
+        HttpUtil.setContentLength(request, length);
         return request;
     }
 
