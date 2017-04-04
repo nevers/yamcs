@@ -74,7 +74,11 @@ public abstract class Command {
                 jc.parse(args);
             } else { 
                 while(k<args.length) {
-                    if(!args[k].startsWith("-")) break;
+                    if(args[k].startsWith("-")) {
+                        k+=getArity(args[k]);
+                    } else {
+                        break;
+                    }
                     k++;
                 }
                 jc.parse(Arrays.copyOf(args, k));
@@ -113,6 +117,22 @@ public abstract class Command {
         selectedCommand.parse(Arrays.copyOfRange(args, k+1, args.length));
     }
 
+
+    int getArity(String arg) {
+        for(ParameterDescription pd: jc.getParameters()) {
+            if(Arrays.asList(pd.getParameter().names()).contains(arg)) {
+                return getArity(pd);
+            }
+        }
+        throw new ParameterException("Unkown option '"+arg+"'");
+    }
+    
+    int getArity(ParameterDescription pd) {
+        Class<?> fieldType = pd.getParameterized().getType();
+        if ((fieldType == boolean.class || fieldType == Boolean.class)) return 0;
+        
+        return pd.getParameter().arity()==-1?1:pd.getParameter().arity();
+    }
 
     String getFullCommandName() {
         List<Command> a = new ArrayList<Command>();
@@ -169,6 +189,10 @@ public abstract class Command {
 
         if(!subCommands.isEmpty()) {
             out.append(" <command> [<command options>]");
+        }
+        if(jc.getMainParameter()!=null) {
+            out.append(" ");
+            out.append(jc.getMainParameterDescription());
         }
         out.append("\n");
         if (sorted.size() > 0) {

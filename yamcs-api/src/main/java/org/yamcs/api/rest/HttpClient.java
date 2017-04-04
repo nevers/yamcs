@@ -198,15 +198,19 @@ public class HttpClient {
      * @return a future indicating when the operation is completed.
      * @throws URISyntaxException
      */
-    public CompletableFuture<Void> doBulkRequest(String url, HttpMethod httpMethod, byte[] body, AuthenticationToken authToken, BulkRestDataReceiver receiver) throws URISyntaxException {
+    public CompletableFuture<Void> doBulkReceiveRequest(String url, HttpMethod httpMethod, byte[] body, AuthenticationToken authToken, BulkRestDataReceiver receiver) throws URISyntaxException {
         URI uri = new URI(url);
         BulkChannelHandler channelHandler = new BulkChannelHandler(receiver);
 
-        ChannelFuture chf = setupChannel(uri ,channelHandler);
+        ChannelFuture chf = setupChannel(uri, channelHandler);
         HttpRequest request = setupRequest(uri, httpMethod, body, authToken);
         CompletableFuture<Void> cf = new CompletableFuture<Void>();
 
-        chf.addListener(f->{
+        chf.addListener(f-> {
+            if(!f.isSuccess()) {
+                cf.completeExceptionally(f.cause());
+                return;
+            }
             Channel ch = chf.channel();
             ch.writeAndFlush(request);
             ChannelFuture closeFuture = ch.closeFuture();
@@ -228,7 +232,7 @@ public class HttpClient {
     }
 
     public CompletableFuture<Void> doBulkRequest(String url, HttpMethod httpMethod, String body, AuthenticationToken authToken, BulkRestDataReceiver receiver) throws URISyntaxException {
-        return doBulkRequest(url, httpMethod, body.getBytes(), authToken, receiver);
+        return doBulkReceiveRequest(url, httpMethod, body.getBytes(), authToken, receiver);
     }
 
     private ChannelFuture setupChannel(URI uri, ChannelHandler channelHandler) {
@@ -289,9 +293,9 @@ public class HttpClient {
 
     private HttpRequest setupRequest(URI uri, HttpMethod httpMethod, byte[] body, AuthenticationToken authToken) throws URISyntaxException {
         ByteBuf content = (body==null)? Unpooled.EMPTY_BUFFER:Unpooled.copiedBuffer(body);
-
         HttpRequest request = new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, httpMethod, getPathWithQuery(uri), content);
         fillInHeaders(request, uri, authToken);
+        HttpUtil.setContentLength(request, body.length);
         return request;
     }
 
