@@ -5,6 +5,7 @@ import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.yamcs.YamcsServer;
 import org.yamcs.api.MediaType;
@@ -24,6 +25,7 @@ import org.yamcs.web.ForbiddenException;
 import org.yamcs.web.HttpContentToByteBufDecoder;
 import org.yamcs.web.HttpException;
 import org.yamcs.web.HttpRequestHandler;
+import org.yamcs.web.InternalServerErrorException;
 import org.yamcs.web.NotFoundException;
 import org.yamcs.web.rest.RestHandler;
 import org.yamcs.web.rest.RestRequest;
@@ -128,34 +130,50 @@ public class ArchiveTableRestHandler extends RestHandler {
             }
         });
     }
+    AtomicInteger count = new AtomicInteger();
     
     @Route(path = "/api/archive/:instance/tables/:name/data", method = "POST", dataLoad = true)
     public void loadTableData(ChannelHandlerContext ctx, HttpRequest req,  RouteMatch match) throws HttpException {
         AuthenticationToken token = ctx.channel().attr(HttpRequestHandler.CTX_AUTH_TOKEN).get();
         verifyAuthorization(token, SystemPrivilege.MayWriteTables);
+        MediaType contentType = RestRequest.deriveSourceContentType(req);
+        if(contentType!=MediaType.PROTOBUF) {
+            throw new BadRequestException("Invalid Content-Type "+contentType+" for table load; please use "+MediaType.PROTOBUF);
+        }
+       
         String instance = match.getRouteParam("instance");
         if (!YamcsServer.hasInstance(instance)) {
             throw new NotFoundException(req, "No instance named '" + instance + "'");
         }
         YarchDatabase ydb = YarchDatabase.getInstance(instance);
+        
         String tableName = match.getRouteParam("name");
+        System.out.println("tableName: "+tableName);
+        
+        
         TableDefinition table = ydb.getTable(tableName);
         if (table == null) {
             throw new NotFoundException(req, "No table named '" + tableName + "' (instance: '" + ydb.getName() + "')");
-        } 
-        
-        MediaType contentType = RestRequest.deriveSourceContentType(req);
-        if(contentType!=MediaType.PROTOBUF) {
-            throw new BadRequestException("Invalid Content-Type "+contentType+" for table load; please use "+MediaType.PROTOBUF);
         }
-        
+        Stream inputStream;
+        try {
+            String sname = "rest_load_table"+count.incrementAndGet();
+            String stmt = "create stream "+sname+table.getTupleDefinition().getStringDefinition();
+            System.out.println("statement: '"+stmt+"'");
+            ydb.execute(stmt);
+            ydb.execute("insert into "+tableName+" select * from "+sname);
+            inputStream = ydb.getStream(sname);
+        } catch (Exception e){
+            e.printStackTrace();
+            throw new InternalServerErrorException(e);
+        }
         
         ChannelPipeline pipeline = ctx.pipeline();
         
         pipeline.addLast("bytebufextractor", new HttpContentToByteBufDecoder());
         pipeline.addLast("frameDecoder", new ProtobufVarint32FrameDecoder());
         pipeline.addLast("protobufDecoder", new ProtobufDecoder(TableRecord.getDefaultInstance()));
-        pipeline.addLast("loader", new TableLoader(req));
+        pipeline.addLast("loader", new TableLoader(table, req, inputStream));
     }
     
     
@@ -167,33 +185,41 @@ public class ArchiveTableRestHandler extends RestHandler {
     }
     
     
-    
     static class TableLoader extends SimpleChannelInboundHandler<TableRecord>  {
         private static final Logger log = LoggerFactory.getLogger(TableLoader.class);
         int count =0;
         private HttpRequest req;
         boolean errorState = false;
+        Stream inputStream;
+        TableDefinition tblDef;
         
-        
-        public TableLoader(HttpRequest req) {
+        public TableLoader(TableDefinition tblDef, HttpRequest req, Stream inputStream) {
             this.req = req;
+            this.inputStream = inputStream;
+            this.tblDef = tblDef;
         }
 
         @Override
         protected void channelRead0(ChannelHandlerContext ctx, TableRecord msg)  throws Exception {
             if(errorState) return;
-            
-            System.out.println("In table loader msg: "+count);
+            Tuple t = ArchiveHelper.toTuple(tblDef, msg.getColumnList());
+            try {
+                inputStream.emitTuple(t);
+            } catch (IllegalArgumentException e) {
+                errorState = true;
+                sendErrorAndCloseAfter2Seconds(ctx, HttpResponseStatus.BAD_REQUEST, "Error after inserting "+count+" records: "+e.toString());
+                inputStream.close();
+                return;
+            }
             count++;
         }
-        
         
         @Override
         public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
             if(errorState) return;
             errorState = true;
-            
             log.warn("Exception caught in the table load pipeline, closing the connection: {}", cause.getMessage());
+            inputStream.close();
             if(cause instanceof DecoderException) {
                 Throwable t = cause.getCause();
                 sendErrorAndCloseAfter2Seconds(ctx, HttpResponseStatus.BAD_REQUEST, "Error after inserting "+count+" records: "+t.toString());
@@ -207,9 +233,9 @@ public class ArchiveTableRestHandler extends RestHandler {
             if(obj == HttpRequestHandler.CONTENT_FINISHED_EVENT) {
                 log.debug("{} table load finished; inserted {} records ", ctx.channel().toString(), count);
                 HttpRequestHandler.sendOK(ctx, req, "inserted "+count+" records\r\n");
+                inputStream.close();
             }
         }
-        
         
         void sendErrorAndCloseAfter2Seconds(ChannelHandlerContext ctx, HttpResponseStatus status, String msg) {
             FullHttpResponse response = new DefaultFullHttpResponse(HTTP_1_1, status, Unpooled.copiedBuffer(msg + "\r\n", CharsetUtil.UTF_8));

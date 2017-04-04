@@ -103,7 +103,6 @@ public class WebSocketFrameHandler extends SimpleChannelInboundHandler<WebSocket
 
     @Override
     protected void channelRead0(ChannelHandlerContext ctx, WebSocketFrame frame) throws Exception {
-        System.out.println(" mark 10 in channelRead frame: "+frame);
         try {
             try {
                 log.debug("Received frame {}", frame);
