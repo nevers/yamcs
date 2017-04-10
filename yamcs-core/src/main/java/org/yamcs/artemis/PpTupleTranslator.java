@@ -47,7 +47,7 @@ public class PpTupleTranslator implements TupleTranslator {
 
     @Override
     public Tuple buildTuple( TupleDefinition tdef, ClientMessage message ) {
-        final DataType paraDataType=DataType.protobuf(org.yamcs.protobuf.Pvalue.ParameterValue.class.getName());
+        final DataType paraDataType = DataType.PARAMETER_VALUE;
         Tuple t = null;
         try {
             ParameterData pd = (ParameterData)Protocol.decode(message, ParameterData.newBuilder());
