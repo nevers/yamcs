@@ -18,8 +18,6 @@ import org.yamcs.xtce.ArgumentAssignment;
 import org.yamcs.xtce.MetaCommand;
 import org.yamcs.xtce.XtceDb;
 
-import junit.framework.Assert;
-
 /**
  * Created by msc on 27/05/15.
  */
@@ -37,7 +35,7 @@ public class XtceCommandEncodingTest {
         arguments.add(argumentAssignment2);
         byte[] b = MetaCommandProcessor.buildCommand(mc, arguments).getCmdPacket();
 
-        Assert.assertTrue(b[0] != 0);
+        assertTrue(b[0] != 0);
     }
 
     @Test

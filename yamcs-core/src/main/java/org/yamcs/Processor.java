@@ -36,6 +36,7 @@ import org.yamcs.tctm.TcTmService;
 import org.yamcs.time.TimeService;
 import org.yamcs.utils.LoggingUtils;
 import org.yamcs.xtce.XtceDb;
+import org.yamcs.xtceproc.ProcessorData;
 import org.yamcs.xtceproc.XtceDbFactory;
 import org.yamcs.xtceproc.XtceTmProcessor;
 
@@ -49,8 +50,9 @@ import com.google.common.util.concurrent.Service;
  *
  */
 public class Processor extends AbstractService {
-    private final String CONFIG_KEY_tmProcessor ="tmProcessor";
-    private final String CONFIG_KEY_parameterCache ="parameterCache";
+    private static final String CONFIG_KEY_TM_PROCESSOR ="tmProcessor";
+    private static final String CONFIG_KEY_PARAMETER_CACHE ="parameterCache";
+    private static final String CONFIG_KEY_ALARM ="alarm";
 
 
     private static Map<String,Processor>instances=Collections.synchronizedMap(new LinkedHashMap<>());
@@ -62,8 +64,7 @@ public class Processor extends AbstractService {
 
     private CommandingManager commandingManager;
 
-    private final String CONFIG_KEY_alarm ="alarm";
-
+   
     private CommandHistoryProvider commandHistoryProvider;
 
 
@@ -94,12 +95,13 @@ public class Processor extends AbstractService {
     XtceTmProcessor tmProcessor;
 
     //unless very good performance reasons, we should try to serialize all the processing in this thread
-    final private ExecutorService executor = Executors.newSingleThreadScheduledExecutor();
+    private final ExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 
-    final private ScheduledThreadPoolExecutor timer = new ScheduledThreadPoolExecutor(1);
+    private final ScheduledThreadPoolExecutor timer = new ScheduledThreadPoolExecutor(1);
 
     TimeService timeService;
 
+    ProcessorData processorData = new ProcessorData();
     @GuardedBy("this")
     HashSet<ProcessorClient> connectedClients= new HashSet<ProcessorClient>();
 
@@ -130,22 +132,22 @@ public class Processor extends AbstractService {
             }
             if(config!=null) {
                 for(String c: config.keySet()) {
-                    if(CONFIG_KEY_alarm.equals(c)) {
+                    if(CONFIG_KEY_ALARM.equals(c)) {
                         Object o = config.get(c);
                         if(!(o instanceof Map)) {
-                            throw new ConfigurationException(CONFIG_KEY_alarm+" configuration should be a map");
+                            throw new ConfigurationException(CONFIG_KEY_ALARM+" configuration should be a map");
                         }
                         configureAlarms((Map<String, Object>) o);
-                    } else if(CONFIG_KEY_parameterCache.equals(c)) {
+                    } else if(CONFIG_KEY_PARAMETER_CACHE.equals(c)) {
                         Object o = config.get(c);
                         if(!(o instanceof Map)) {
-                            throw new ConfigurationException(CONFIG_KEY_parameterCache + " configuration should be a map");
+                            throw new ConfigurationException(CONFIG_KEY_PARAMETER_CACHE + " configuration should be a map");
                         }
                         configureParameterCache((Map<String, Object>) o);
-                    } else if(CONFIG_KEY_tmProcessor.equals(c)) {
+                    } else if(CONFIG_KEY_TM_PROCESSOR.equals(c)) {
                         Object o = config.get(c);
                         if(!(o instanceof Map)) {
-                            throw new ConfigurationException(CONFIG_KEY_tmProcessor+ " configuration should be a map");
+                            throw new ConfigurationException(CONFIG_KEY_TM_PROCESSOR+ " configuration should be a map");
                         }
                         tmProcessorConfig = (Map<String, Object>) o;
                     } else {
@@ -173,15 +175,11 @@ public class Processor extends AbstractService {
             containerRequestManager = new ContainerRequestManager(this, tmProcessor);
             parameterRequestManager = new ParameterRequestManagerImpl(this, tmProcessor);
 
-            //    containerRequestManager.setPacketProvider(tmPacketProvider);
-
             for(ParameterProvider pprov: parameterProviders) {
                 pprov.init(this);
                 parameterRequestManager.addParameterProvider(pprov);
             }
 
-
-            //QUICK HACK  TODO
             if((tmPacketProvider!=null) && (tmPacketProvider instanceof ParameterProvider) ) {
                 parameterRequestManager.addParameterProvider((ParameterProvider)tmPacketProvider);
             }
@@ -203,7 +201,6 @@ public class Processor extends AbstractService {
 
             } else {
                 commandingManager=null;
-                //QUICK HACK  TODO
                 if((tmPacketProvider!=null) && (tmPacketProvider instanceof CommandHistoryProvider) ) {
                     commandHistoryProvider = (CommandHistoryProvider) tmPacketProvider;
                     commandHistoryRequestManager = new CommandHistoryRequestManager(this);
@@ -346,9 +343,6 @@ public class Processor extends AbstractService {
                 tmProcessor.awaitRunning();
             }
             notifyStarted();
-            
-        } catch (IllegalStateException e) {
-            notifyFailed(e.getCause());
         } catch (Exception e) {
             notifyFailed(e);
         }
@@ -573,7 +567,7 @@ public class Processor extends AbstractService {
     }
 
     public boolean hasCommanding() {
-        return (commandingManager!=null);
+        return commandingManager!=null;
     }
 
     public void setSynchronous(boolean synchronous) {
@@ -691,5 +685,9 @@ public class Processor extends AbstractService {
 
     public ParameterCache getParameterCache() {
         return parameterRequestManager.getParameterCache();
+    }
+
+    public ProcessorData getProcessorData() {
+        return processorData;
     }
 }
