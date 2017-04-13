@@ -603,7 +603,29 @@ public class XtceTmExtractorTest {
         assertEquals(received.size(), 6);
     }
 
+    @Test
+    public void testPKT1_13JavaAlgo() throws ConfigurationException {
+        RefMdbPacketGenerator tmGenerator=new RefMdbPacketGenerator();
 
+        XtceTmExtractor tmExtractor=new XtceTmExtractor(xtcedb);
+        tmExtractor.startProvidingAll();
+        
+        ByteBuffer bb=tmGenerator.generate_PKT1_13();
+        tmExtractor.processPacket(bb, TimeEncoding.getWallclockTime(), TimeEncoding.getWallclockTime());
+        
+        //System.out.println("PKT15 buffer: "+StringConvertors.arrayToHexString(bb.array()));
+        ParameterValueList received = tmExtractor.getParameterResult();
+        // Check all the parameters have been parsed
+        assertEquals( 2, received.size() );
+        
+        ParameterValue pv = received.getLastInserted(xtcedb.getParameter("/REFMDB/SUBSYS1/StringBooleanPara1_13_1"));
+        assertTrue(pv.getEngValue().getBooleanValue());
+
+        ParameterValue pv2 = received.getLastInserted(xtcedb.getParameter("/REFMDB/SUBSYS1/FloatPara1_13_2"));
+        assertEquals(1, pv2.getEngValue().getFloatValue(), 1e-2);
+
+    
+    }
     private String byteBufferToHexString(ByteBuffer bb) {
         bb.mark();
         StringBuilder sb =new StringBuilder();
@@ -615,4 +637,6 @@ public class XtceTmExtractorTest {
         bb.reset();
         return sb.toString();
     }
+    
+    
 }

@@ -39,6 +39,8 @@ public class RefMdbPacketGenerator extends AbstractService implements TmPacketPr
     public final int pkt1_9Length=pkt1Length+1;
     public final int pkt1_10Length=pkt1Length+8;
     public final int pkt1_11Length=pkt1Length+4;
+    public final int pkt1_13Length=pkt1Length+8;
+  
     public final int pkt2Length=8;
     public final int pkt1_ListLength=pkt1Length;
     public final int pkt1_AndLength=pkt1Length;
@@ -63,6 +65,9 @@ public class RefMdbPacketGenerator extends AbstractService implements TmPacketPr
     public volatile long pIntegerPara1_1_8=5084265585L;
     public volatile int pIntegerPara1_11_1=0xAFFFFFFE; // a uint32 stored in signed java int
     public volatile long pIntegerPara1_11_1_unsigned_value=2952790014L; // the equivalent unsigned value
+    public volatile String pStringBooleanPara1_13_1 = "aaa";
+    public volatile float pFloatPara1_13_2 = 3.14f;
+    
 
     public volatile byte pLEIntegerPara1_2_1 = 13;
     public volatile short pLEIntegerPara1_2_2 = 1300;
@@ -157,6 +162,12 @@ public class RefMdbPacketGenerator extends AbstractService implements TmPacketPr
         return bb;
     }
 
+    public ByteBuffer generate_PKT1_13() {
+        ByteBuffer bb=ByteBuffer.allocate(pkt1_13Length);
+        fill_PKT1_13(bb);
+        sendToTmProcessor(bb);
+        return bb;
+    }
     public ByteBuffer generate_PKT2() {
         ByteBuffer bb=ByteBuffer.allocate(pkt2Length);
         fill_PKT2(bb);
@@ -451,6 +462,17 @@ public class RefMdbPacketGenerator extends AbstractService implements TmPacketPr
         // Straight string is null terminated
         putTerminatedStringParam(bb, pStringIntStrPara1_5_5, (byte)0);
     }
+
+    private void fill_PKT1_13(ByteBuffer bb) {
+        fill_PKT1(bb, 13);
+        int offset = pkt1Length;
+        bb.position(offset);
+
+        // Integers in strings
+        putTerminatedStringParam(bb, pStringBooleanPara1_13_1, (byte)0);
+        bb.putFloat(pFloatPara1_13_2);
+    }
+
 
     private void fill_PKT2(ByteBuffer bb) {
         bb.position(4);
