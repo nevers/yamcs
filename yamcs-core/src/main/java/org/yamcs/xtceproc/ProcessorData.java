@@ -11,11 +11,13 @@ import org.yamcs.xtce.PolynomialCalibrator;
 import org.yamcs.xtce.SplineCalibrator;
 
 /**
- * Holds information related anre required for XTCE processing.
+ * Holds information related and required for XTCE processing. 
+ * It is separated from Processor because it has to be usable when not a full blown processor is available (e.g. XTCE packet processing)
  * 
  *  For the moment is just calibrators used - but in the future could be any deviation from loaded XTCE DB (e.g. alarm definitions and others).
  *  
- *  Ultimately should be somehow connected with AlgorithmExecutionContext and also with the ParameterCache
+ *  Ultimately should be connected with the ParameterCache for things that depend on the history (contextual alarms, contextual calibrations, algorithms, etc)
+ *  
  *
  */
 public class ProcessorData {
@@ -41,9 +43,11 @@ public class ProcessorData {
             } else if(de instanceof  FloatDataEncoding) {
                 calibrator = getCalibrator(((FloatDataEncoding) de).getDefaultCalibrator());
             } else {
-                throw new IllegalStateException("Unsupported integer encoding of type: "+de);
+                throw new IllegalStateException("Calibrators not supported for: "+de);
             }
-            calibrators.put(de, calibrator);
+            if(calibrator!=null) {
+                calibrators.put(de, calibrator);
+            }
         }
         return calibrator;
     }

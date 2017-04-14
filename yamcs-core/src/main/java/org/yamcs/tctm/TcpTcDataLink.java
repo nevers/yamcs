@@ -20,11 +20,10 @@ import org.yamcs.YConfiguration;
 import org.yamcs.YamcsServer;
 import org.yamcs.cmdhistory.CommandHistoryPublisher;
 import org.yamcs.commanding.PreparedCommand;
+import org.yamcs.parameter.ParameterValue;
 import org.yamcs.parameter.SystemParametersCollector;
 import org.yamcs.parameter.SystemParametersProducer;
 import org.yamcs.protobuf.Commanding.CommandId;
-import org.yamcs.protobuf.Pvalue.ParameterValue;
-import org.yamcs.protobuf.Yamcs.NamedObjectId;
 import org.yamcs.time.TimeService;
 import org.yamcs.utils.LoggingUtils;
 import org.yamcs.utils.TimeEncoding;
@@ -48,7 +47,7 @@ public class TcpTcDataLink extends AbstractService implements Runnable, TcDataLi
     protected volatile boolean disabled=false;
     protected int minimumTcPacketLength = -1; //the minimum size of the CCSDS packets uplinked
     protected volatile long tcCount;
-    private NamedObjectId sv_linkStatus_id, sp_dataCount_id;
+    private String sv_linkStatus_id, sp_dataCount_id;
 
     private SystemParametersCollector sysParamCollector;
     protected final Logger log;
@@ -59,7 +58,7 @@ public class TcpTcDataLink extends AbstractService implements Runnable, TcDataLi
     public TcpTcDataLink(String yamcsInstance, String name, String spec) throws ConfigurationException {
         log = LoggingUtils.getLogger(this.getClass(), yamcsInstance);
         YConfiguration c = YConfiguration.getConfiguration("tcp");
-        this.yamcsInstance=yamcsInstance;
+        this.yamcsInstance = yamcsInstance;
         host = c.getString(spec, "tcHost");
         port = c.getInt(spec, "tcPort");
         this.name = name;
@@ -109,8 +108,12 @@ public class TcpTcDataLink extends AbstractService implements Runnable, TcDataLi
         } catch (IOException e) {
             String exc = (e instanceof ConnectException) ? ((ConnectException) e).getMessage() : e.toString();
             log.info("Cannot open TC connection to {}:{} '{}'. Retrying in 10s", host, port, exc.toString());
-            try {socketChannel.close();} catch (Exception e1) {}
-            try {selector.close();} catch (Exception e1) {}
+            try {
+                socketChannel.close();
+            } catch (Exception e1) {}
+            try {
+                selector.close();
+            } catch (Exception e1) {}
             socketChannel=null;
         }
     }
@@ -124,7 +127,7 @@ public class TcpTcDataLink extends AbstractService implements Runnable, TcDataLi
             selector.close();
             socketChannel=null;
         } catch (IOException e) {
-            log.warn("Exception caught when checking if the socket to "+host+":"+port+" is open", e);
+            log.warn("Exception caught when checking if the socket to {}:{} is open", host, port, e);
         }
     }
     /**
@@ -143,7 +146,7 @@ public class TcpTcDataLink extends AbstractService implements Runnable, TcDataLi
             if(selectionKey.isReadable()) {
                 int read = socketChannel.read(bb);
                 if(read>0) {
-                    log.info("Data read on the TC socket to "+host+":"+port+"!! :"+bb);
+                    log.info("Data read on the TC socket to {}:{}!! : {}",host, port, bb);
                     connected=true;
                 } else if(read<0) {
                     log.warn("TC socket to "+host+":"+port+" has been closed");
@@ -159,7 +162,7 @@ public class TcpTcDataLink extends AbstractService implements Runnable, TcDataLi
                 connected=false;
             }
         } catch (IOException e) {
-            log.warn("Exception caught when checking if the socket to "+host+":"+port+" is open:", e);
+            log.warn("Exception caught when checking if the socket to {}:{} is open:",host, port, e);
             connected=false;
         }
         return connected;
@@ -341,8 +344,8 @@ public class TcpTcDataLink extends AbstractService implements Runnable, TcDataLi
         this.sysParamCollector = SystemParametersCollector.getInstance(yamcsInstance);
         if(sysParamCollector!=null) {
             sysParamCollector.registerProvider(this, null);
-            sv_linkStatus_id = NamedObjectId.newBuilder().setName(sysParamCollector.getNamespace()+"/"+name+"/linkStatus").build();
-            sp_dataCount_id = NamedObjectId.newBuilder().setName(sysParamCollector.getNamespace()+"/"+name+"/dataCount").build();
+            sv_linkStatus_id = sysParamCollector.getNamespace()+"/"+name+"/linkStatus";
+            sp_dataCount_id = sysParamCollector.getNamespace()+"/"+name+"/dataCount";
 
 
         } else {

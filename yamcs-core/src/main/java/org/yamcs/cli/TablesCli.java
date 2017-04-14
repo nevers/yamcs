@@ -74,7 +74,7 @@ public class TablesCli extends Command {
         private void dumpTable(String tableName) throws Exception {
             String fileName = tableName+".dump";
             if(dir!=null) {
-                fileName = dir+"/"+fileName;;
+                fileName = dir+"/"+fileName;
             }
             AtomicInteger count = new AtomicInteger();
             System.out.println("Dumping data from "+tableName+" table to "+fileName);
@@ -142,7 +142,9 @@ public class TablesCli extends Command {
                 int c = 0;
                 while(true) {
                     Row tr = Row.parseDelimitedFrom(is);
-                    if(tr==null) break;
+                    if(tr==null) {
+                        break;
+                    }
                     tr.writeDelimitedTo(bufstream);
                     if(((c++)&0xF)==0) {
                         bufstream.close();

@@ -80,7 +80,7 @@ public class RealtimeArtemisParameterService implements ParameterWithIdConsumer 
         }
 
         String request=msg.getStringProperty(REQUEST_TYPE_HEADER_NAME);
-        log.debug("received a new request: "+request);
+        log.debug("received a new request: {}", request);
         SimpleString dataAddress=msg.getSimpleStringProperty(DATA_TO_HEADER_NAME);
         if(dataAddress==null) {
             yclient.sendErrorReply(replyto, "subscribe has to come with a data address (to send data to)");
@@ -117,13 +117,13 @@ public class RealtimeArtemisParameterService implements ParameterWithIdConsumer 
                 int subscriptionId=subscriptions.inverse().get(dataAddress);
                 prh.addItemsToRequest(subscriptionId, paraList, authToken);
             } else {
-                ArtemisManagement.configureNonBlocking(dataAddress);
+                //TODO configure non-blocking
                 int subscriptionId=prh.addRequest(paraList, authToken);
                 subscriptions.put(subscriptionId, dataAddress);
             }
             yclient.sendReply(replyto, "OK",null);
         } catch (InvalidIdentification e) {
-            NamedObjectList nol=NamedObjectList.newBuilder().addAllList(e.invalidParameters).build();
+            NamedObjectList nol=NamedObjectList.newBuilder().addAllList(e.getInvalidParameters()).build();
             yclient.sendErrorReply(replyto, new YamcsException("InvalidIdentification", "Invalid Identification", nol));
         } catch (InvalidRequestIdentification e) {
             log.error("got invalid subscription id", e);
