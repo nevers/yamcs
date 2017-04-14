@@ -39,6 +39,7 @@ public class RefMdbPacketGenerator extends AbstractService implements TmPacketPr
     public final int pkt1_9Length=pkt1Length+1;
     public final int pkt1_10Length=pkt1Length+8;
     public final int pkt1_11Length=pkt1Length+4;
+    
     public final int pkt1_13Length=pkt1Length+8;
   
     public final int pkt2Length=8;
@@ -161,20 +162,7 @@ public class RefMdbPacketGenerator extends AbstractService implements TmPacketPr
         sendToTmProcessor(bb);
         return bb;
     }
-
-    public ByteBuffer generate_PKT1_13() {
-        ByteBuffer bb=ByteBuffer.allocate(pkt1_13Length);
-        fill_PKT1_13(bb);
-        sendToTmProcessor(bb);
-        return bb;
-    }
-    public ByteBuffer generate_PKT2() {
-        ByteBuffer bb=ByteBuffer.allocate(pkt2Length);
-        fill_PKT2(bb);
-        sendToTmProcessor(bb);
-        return bb;
-    }
-
+    
     /**
      * Generate a packet with configurable content
      */
@@ -231,6 +219,21 @@ public class RefMdbPacketGenerator extends AbstractService implements TmPacketPr
     public ByteBuffer generate_PKT1_12() {
         ByteBuffer bb=ByteBuffer.allocate(pkt1Length + pStringEnumPara1_12_1.length()+1);
         fill_PKT1_12(bb);
+        sendToTmProcessor(bb);
+        return bb;
+    }
+
+
+    public ByteBuffer generate_PKT1_13() {
+        ByteBuffer bb=ByteBuffer.allocate(pkt1_13Length);
+        fill_PKT1_13(bb);
+        sendToTmProcessor(bb);
+        return bb;
+    }
+
+    public ByteBuffer generate_PKT2() {
+        ByteBuffer bb=ByteBuffer.allocate(pkt2Length);
+        fill_PKT2(bb);
         sendToTmProcessor(bb);
         return bb;
     }
