@@ -36,9 +36,11 @@ public class HistogramRebuilder {
     final TableDefinition tblDef;
     private static AtomicInteger streamCounter = new AtomicInteger();
     static Logger log = LoggerFactory.getLogger(HistogramRebuilder.class);
-
-    public HistogramRebuilder(YarchDatabaseInstance ydb, String tableName) {
+    Tablespace tablespace;
+    
+    public HistogramRebuilder(Tablespace tablespace, YarchDatabaseInstance ydb, String tableName) {
         this.ydb = ydb;
+        this.tablespace = tablespace;
         tblDef = ydb.getTable(tableName);
         if(tblDef==null) {
             throw new IllegalArgumentException("No table named '"+tableName+"' in instance "+ydb.getName());
@@ -69,8 +71,8 @@ public class HistogramRebuilder {
         String timeColumnName = tblDef.getTupleDefinition().getColumn(0).getName();
         String streamName = "histo_rebuild_" + streamCounter.incrementAndGet();
         
-        RdbStorageEngine rdbsr = RdbStorageEngine.getInstance(ydb);
-        AbstractTableWriter tw = (AbstractTableWriter) rdbsr.newTableWriter(tblDef, InsertMode.INSERT); 
+        RdbStorageEngine rdbsr = RdbStorageEngine.getInstance();
+        RdbTableWriter tw = (RdbTableWriter) rdbsr.newTableWriter(ydb, tblDef, InsertMode.INSERT); 
         try {
             ydb.execute("create stream "+streamName+" as select * from "+tblDef.getName() + getWhereCondition(timeColumnName, interval));
         } catch (StreamSqlException|ParseException e) {
@@ -89,7 +91,7 @@ public class HistogramRebuilder {
             public void onTuple(Stream stream, Tuple tuple) {
                 try {
                     RdbPartition partition = tw.getDbPartition(tuple);
-                    YRDB db = rdbFactory.getRdb(tblDef.getDataDir()+"/"+partition.dir, false);
+                    YRDB db = tablespace.getRdb(partition, false);
                     tw.addHistogram(db, tuple);
                 } catch (Exception e) {
                     cf.completeExceptionally(e);
@@ -126,7 +128,7 @@ public class HistogramRebuilder {
 
 
     void deleteHistograms(TimeInterval interval) throws RocksDBException, IOException {
-        RdbStorageEngine rdbsr = RdbStorageEngine.getInstance(ydb);
+        RdbStorageEngine rdbsr = RdbStorageEngine.getInstance();
         RDBFactory rdbf = RDBFactory.getInstance(ydb.getName());
         Iterator<List<Partition>> partitionIterator;
         if(interval.hasStart()) {
@@ -152,29 +154,22 @@ public class HistogramRebuilder {
             
             YRDB rdb = rdbf.getRdb(tblDef.getDataDir()+"/"+p0.dir, false);
             for(String colName: tblDef.getHistogramColumns()) {
-                String cfHistoName = AbstractTableWriter.getHistogramColumnFamilyName(colName);
-                ColumnFamilyHandle cfh = rdb.getColumnFamilyHandle(cfHistoName);
-                if(cfh==null) {
-                    log.debug("No existing histogram column family for {}", colName);
-                    continue;
-                }
                 if((kstart==pstart) && (kend==pend)) {
                     log.debug("Dropping column family {}", colName);
-                    rdb.dropColumnFamily(cfh);
                 } else {
                     WriteBatch writeBatch = new WriteBatch();
-                    RocksIterator it = rdb.getDb().newIterator(cfh);
+                    RocksIterator it = rdb.getDb().newIterator();
                     it.seek(HistogramSegment.key(kstart, empty));
                     while(it.isValid()) {
                         long k = HistogramSegment.getSstart(it.key());
                         if(k>kend) {
                             break;
                         }
-                        writeBatch.remove(cfh, it.key());
+                        writeBatch.remove(it.key());
                         it.next();
                     }
                     WriteOptions wo = new WriteOptions();
-                    rdb.getDb().write(wo, writeBatch);
+               //     rdb.getDb().write(wo, writeBatch);
                     wo.close();
                     writeBatch.close();
                     it.close();

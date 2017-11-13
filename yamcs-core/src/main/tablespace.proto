@@ -1,0 +1,32 @@
+syntax = "proto2";
+
+option java_package = "org.yamcs.yarch.rocksdb.protobuf";
+
+/**
+*  This is used to encode the tablespace metadata .
+*/
+message TablespaceRecord {
+  enum Type {
+     TABLE_PARTITION = 1;
+     HISTOGRAM = 2;
+  }
+  optional uint32 tbsIndex = 1;
+  optional Type type = 2;
+
+  //if not specified then instanceName = tablespaceName
+  optional string instanceName = 3;
+
+  //used for TABLE_PARTITION and HISTOGRAM
+  optional string tableName = 4;
+
+  //used for TABLE_PARTITION and HISTOGRAM 
+  optional string columnName = 5;
+
+  // used for TABLE_PARTITION: if partitioned by value - the value
+  optional bytes partitionValue = 6;
+
+  // used for TABLE_PARTITION: if partition by time - subdirectory name (usually something like 2017/11)
+  optional string partitionDir = 7;
+  
+}
+

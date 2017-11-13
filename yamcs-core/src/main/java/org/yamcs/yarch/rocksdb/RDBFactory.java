@@ -38,9 +38,6 @@ public class RDBFactory implements Runnable {
     final String instance;
     public static FlushOptions flushOptions = new FlushOptions();
     StringColumnFamilySerializer stringCfSerializer = new StringColumnFamilySerializer();
-    
-    //use this when the db is open for the backup; if the same db is open with another serializer, then this one will be dropped 
-    DummyColumnFamilySerializer dummyCfSerializer = new DummyColumnFamilySerializer();
 
     public static synchronized RDBFactory getInstance(String instance) {
         RDBFactory rdbFactory = instances.get(instance); 
@@ -300,6 +297,17 @@ public class RDBFactory implements Runnable {
         });
 
         return cf;
+    }
+    
+
+    /** 
+     * Called from Unit tests to cleanup before the next test
+     */
+    public static void shutdownAll() {
+        for(RDBFactory r: instances.values()) {
+            r.shutdown();
+        }
+        instances.clear();
     }
 }
 

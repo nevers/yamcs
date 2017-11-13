@@ -491,4 +491,8 @@ public class YamcsServer {
         }
     }
 
+    public static CrashHandler getGlobalCrashHandler() {
+        return globalCrashHandler;
+    }
+
 }

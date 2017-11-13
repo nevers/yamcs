@@ -1,7 +1,12 @@
 package org.yamcs.yarch.rocksdb;
 
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.io.Writer;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
@@ -11,16 +16,19 @@ import org.rocksdb.RocksDBException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.yamcs.TimeInterval;
+import org.yamcs.YamcsServer;
 import org.yamcs.archive.TagDb;
-import org.yamcs.utils.FileUtils;
+import org.yamcs.utils.ByteArrayUtils;
 import org.yamcs.yarch.AbstractStream;
 import org.yamcs.yarch.HistogramRecord;
 import org.yamcs.yarch.Partition;
 import org.yamcs.yarch.StorageEngine;
 import org.yamcs.yarch.TableDefinition;
-import org.yamcs.yarch.TableDefinition.PartitionStorage;
 import org.yamcs.yarch.TableWriter;
+import org.yamcs.yarch.YarchDatabase;
 import org.yamcs.yarch.TableWriter.InsertMode;
+import org.yamcs.yarch.rocksdb.RdbHistogramIterator;
+import org.yaml.snakeyaml.Yaml;
 import org.yamcs.yarch.YarchDatabaseInstance;
 import org.yamcs.yarch.YarchException;
 
@@ -33,74 +41,84 @@ import org.yamcs.yarch.YarchException;
  */
 public class RdbStorageEngine implements StorageEngine {
     Map<TableDefinition, RdbPartitionManager> partitionManagers = new HashMap<>();
-    final YarchDatabaseInstance ydb;
-    static Map<YarchDatabaseInstance, RdbStorageEngine> instances = new HashMap<>();
+    Map<String, Tablespace> tablespaces = new HashMap<>();
+
     static {
         RocksDB.loadLibrary();
     }
     static Logger log = LoggerFactory.getLogger(RdbStorageEngine.class.getName());
     RdbTagDb rdbTagDb = null;
     boolean ignoreVersionIncompatibility = false;
+    static RdbStorageEngine instance = new RdbStorageEngine();
 
-    public RdbStorageEngine(YarchDatabaseInstance ydb, boolean ignoreVersionIncompatibility) throws YarchException {
-        this.ydb = ydb;
-        instances.put(ydb, this);
-        this.ignoreVersionIncompatibility = ignoreVersionIncompatibility;
+    private RdbStorageEngine() {
     }
 
-    public RdbStorageEngine(YarchDatabaseInstance ydb) throws YarchException {
-        this(ydb, false);
+    public void loadTablespaces(boolean readOnly) throws YarchException {
+        File dir=new File(YarchDatabase.getDataDir());
+        if(dir.exists() ) {
+            File[] dirFiles = dir.listFiles();
+            if(dirFiles==null) {
+                return; //no tables found
+            }
+            for(File f:dirFiles) {
+                String fn=f.getName();
+                if(fn.endsWith(".tblsp")) {
+                    try {
+                        Tablespace tablespace = deserializeTablespace(f);
+                        tablespace.loadDb(readOnly);
+                        tablespaces.put(tablespace.getName(), tablespace);
+                    } catch (IOException|RocksDBException e) {
+                        log.warn("Got exception when reading the table definition from {}: ", f, e);
+                        throw new YarchException("Got exception when reading the table definition from "+f+": ", e);
+                    }  
+                }
+            }
+        } 
     }
 
     @Override
-    public void loadTable(TableDefinition tbl) throws YarchException {
-        if(tbl.hasPartitioning()) {
-            RdbPartitionManager pm = new RdbPartitionManager(ydb, tbl);
-            pm.readPartitionsFromDisk();
-            partitionManagers.put(tbl, pm);
-        }
+    public void loadTable(YarchDatabaseInstance ydb, TableDefinition tblDef) throws YarchException {
+        Tablespace tablespace = getTablespace(ydb, tblDef);
+        RdbPartitionManager pm = new RdbPartitionManager(tablespace, ydb, tblDef);
+        partitionManagers.put(tblDef, pm);
+        pm.readPartitions();
     }
 
+
     @Override
-    public void dropTable(TableDefinition tbl) throws YarchException {
+    public void dropTable(YarchDatabaseInstance ydb, TableDefinition tbl) throws YarchException {
         RdbPartitionManager pm = partitionManagers.remove(tbl);
+        Tablespace tablespace = getTablespace(ydb, tbl);
+        tablespace.removeTable(ydb.getYamcsInstance(), tbl.getName());
 
         for(Partition p:pm.getPartitions()) {
             RdbPartition rdbp = (RdbPartition)p;
-            File f=new File(tbl.getDataDir()+"/"+rdbp.dir);
-            RDBFactory rdbFactory = RDBFactory.getInstance(ydb.getName());
-            rdbFactory.closeIfOpen(f.getAbsolutePath());
+
+
+            RDBFactory rdbFactory = RDBFactory.getInstance(tablespace.getName());
+            File f=new File(tablespace.getDataDir()+"/"+rdbp.dir);
             try {
-                if(f.exists()) {
-                    log.debug("Recursively removing {}", f);
-                    FileUtils.deleteRecursively(f.toPath());
-                }
+                YRDB db = rdbFactory.getRdb(f.getAbsolutePath(), false);
+                byte[] b = dbKey(rdbp.tbsIndex);
+                db.deleteAllWithPrefix(b);
             } catch (IOException e) {
-                throw new YarchException("Cannot remove "+f, e);
+                log.error("Error when removing partition", e);
             }
+            rdbFactory.closeIfOpen(f.getAbsolutePath());
         }
 
     }
 
     @Override
-    public TableWriter newTableWriter(TableDefinition tblDef, InsertMode insertMode) throws YarchException {
+    public TableWriter newTableWriter(YarchDatabaseInstance ydb, TableDefinition tblDef, InsertMode insertMode) throws YarchException {
         if(!partitionManagers.containsKey(tblDef)) {
-            throw new IllegalArgumentException("Do not have a partition manager for this table");
+            throw new IllegalStateException("Do not have a partition manager for this table");
         }
-        checkFormatVersion(tblDef);
+        checkFormatVersion(ydb, tblDef);
 
         try {
-            if(tblDef.isPartitionedByValue()) {
-                if(tblDef.getPartitionStorage()==PartitionStorage.COLUMN_FAMILY) {
-                    return new CfTableWriter(ydb, tblDef, insertMode, partitionManagers.get(tblDef));
-                } else if(tblDef.getPartitionStorage()==PartitionStorage.IN_KEY) {
-                    return new InKeyTableWriter(ydb, tblDef, insertMode, partitionManagers.get(tblDef));
-                } else {
-                    throw new IllegalArgumentException("Unknwon partition storage: "+tblDef.getPartitionStorage());
-                }
-            } else {
-                return new CfTableWriter(ydb, tblDef, insertMode, partitionManagers.get(tblDef));
-            }
+            return new RdbTableWriter(getTablespace(ydb, tblDef), ydb, tblDef, insertMode, partitionManagers.get(tblDef));
         } catch (IOException e) {
             throw new YarchException("Failed to create writer", e);
         } 
@@ -108,31 +126,22 @@ public class RdbStorageEngine implements StorageEngine {
 
 
     @Override
-    public AbstractStream newTableReaderStream(TableDefinition tbl, boolean ascending, boolean follow) {
+    public AbstractStream newTableReaderStream(YarchDatabaseInstance ydb, TableDefinition tbl, boolean ascending, boolean follow) {
         if(!partitionManagers.containsKey(tbl)) {
-            throw new IllegalArgumentException("Do not have a partition manager for this table");
+            throw new IllegalStateException("Do not have a partition manager for this table");
         }
-        if(tbl.isPartitionedByValue()) {
-            if(tbl.getPartitionStorage()==PartitionStorage.COLUMN_FAMILY) {
-                return new CfTableReaderStream(ydb, tbl, partitionManagers.get(tbl), ascending, follow);
-            } else if(tbl.getPartitionStorage()==PartitionStorage.IN_KEY) {
-                return new InkeyTableReaderStream(ydb, tbl, partitionManagers.get(tbl), ascending, follow);
-            } else {
-                throw new RuntimeException("Unknwon partition storage: "+tbl.getPartitionStorage());
-            }
-        } else {
-            return new CfTableReaderStream(ydb, tbl, partitionManagers.get(tbl), ascending, follow);
-        }
+
+        return new RdbTableReaderStream(getTablespace(ydb, tbl), ydb, tbl, partitionManagers.get(tbl), ascending, follow);
     }
 
     @Override
-    public void createTable(TableDefinition def) {		
-        RdbPartitionManager pm = new RdbPartitionManager(ydb, def);
+    public void createTable(YarchDatabaseInstance ydb, TableDefinition def) {		
+        RdbPartitionManager pm = new RdbPartitionManager(getTablespace(ydb, def), ydb, def);
         partitionManagers.put(def, pm);
     }
 
-    public static synchronized RdbStorageEngine getInstance(YarchDatabaseInstance ydb) {
-        return instances.get(ydb);
+    public static synchronized RdbStorageEngine getInstance() {
+        return instance;
     }
 
     public RdbPartitionManager getPartitionManager(TableDefinition tdef) {      
@@ -143,7 +152,7 @@ public class RdbStorageEngine implements StorageEngine {
 
 
     @Override
-    public synchronized TagDb getTagDb() throws YarchException {
+    public synchronized TagDb getTagDb(YarchDatabaseInstance ydb) throws YarchException {
         if(rdbTagDb==null) {
             try {
                 rdbTagDb = new RdbTagDb(ydb);
@@ -154,25 +163,56 @@ public class RdbStorageEngine implements StorageEngine {
         return rdbTagDb;
     }
 
-    /** 
-     * Called from Unit tests to cleanup before the next test
-     */
-    public void shutdown() {
-        RDBFactory rdbFactory = RDBFactory.getInstance(ydb.getName());
-        rdbFactory.shutdown();
+    private synchronized Tablespace getTablespace(YarchDatabaseInstance ydb, TableDefinition tbl) {
+        String tablespaceName = tbl.getTablespaceName();
+        if(tablespaceName==null) {
+            tablespaceName = ydb.getName();
+        }
+        if(tablespaces.containsKey(tablespaceName)) {
+            return tablespaces.get(tablespaceName);
+        } else {
+            createTablespace(tablespaceName);
+        }
+        return tablespaces.get(tablespaceName);
     }
 
-    /**
-     * Called from unit tests to cleanup before the next test
-     * @param ydb
-     */
-    public static synchronized void removeInstance(YarchDatabaseInstance ydb) {
-        RdbStorageEngine rse = instances.remove(ydb);
-        if(rse!=null) {
-            rse.shutdown();
+    private void createTablespace(String tablespaceName) {
+        log.info("Creating tablespace {}", tablespaceName);
+        int id = tablespaces.values().stream().mapToInt(t->t.getId()).max().orElse(0);
+        Tablespace t = new Tablespace(tablespaceName, (byte)(id+1));
+
+        String fn = YarchDatabase.getDataDir()+"/"+tablespaceName+".tblspdef";
+        try (FileOutputStream fos = new FileOutputStream(fn)) {
+            Yaml yaml = new Yaml(new TablespaceRepresenter());
+            Writer w = new BufferedWriter(new OutputStreamWriter(fos));
+            yaml.dump(t, w);
+            w.flush();
+            fos.getFD().sync();
+            w.close();
+        } catch (IOException e) {
+            YamcsServer.getGlobalCrashHandler().handleCrash("RdbStorageEngine", "Cannot write tablespace definition to "+fn+" :"+e);
+            log.error("Got exception when writing tablespapce definition to {} ",fn, e);
+        }
+        tablespaces.put(tablespaceName, t);
+    }
+
+
+    private Tablespace deserializeTablespace(File f) throws IOException {
+        String fn = f.getName();
+        
+        try(FileInputStream fis = new FileInputStream(f)) {
+            String tablespaceName=fn.substring(0,fn.length()-6);
+            Yaml yaml = new Yaml(new TablespaceConstructor(tablespaceName));
+            Object o = yaml.load(fis);
+            if(!(o instanceof Tablespace)) {
+                fis.close();
+                throw new IOException("Cannot load tablespace definition from "+f+": object is "+o.getClass().getName()+"; should be "+Tablespace.class.getName());
+            }
+            Tablespace tablespace = (Tablespace) o;
+            fis.close();
+            return tablespace;
         }
     }
-
     /**
      * set to ignore version incompatibility - only used from the version upgrading functions to allow loading old tables.
      * 
@@ -182,7 +222,7 @@ public class RdbStorageEngine implements StorageEngine {
         this.ignoreVersionIncompatibility = b;
     }
 
-    private void checkFormatVersion(TableDefinition tblDef) throws YarchException {
+    private void checkFormatVersion(YarchDatabaseInstance ydb, TableDefinition tblDef) throws YarchException {
         if(ignoreVersionIncompatibility) {
             return;
         }
@@ -193,12 +233,20 @@ public class RdbStorageEngine implements StorageEngine {
         }
     }
     @Override
-    public Iterator<HistogramRecord> getHistogramIterator(TableDefinition tblDef, String columnName, TimeInterval interval, long mergeTime) throws YarchException {
-        checkFormatVersion(tblDef);
+    public Iterator<HistogramRecord> getHistogramIterator(YarchDatabaseInstance ydb, TableDefinition tblDef, String columnName, TimeInterval interval, long mergeTime) throws YarchException {
+        checkFormatVersion(ydb, tblDef);
         try {
-            return new RdbHistogramIterator(ydb, tblDef, columnName, interval, mergeTime);
+            return new RdbHistogramIterator(getTablespace(ydb, tblDef), ydb, tblDef, columnName, interval, mergeTime);
         } catch (RocksDBException e) {
             throw new YarchException(e);
         }
+    }
+    static byte[] dbKey(int tbsIndex) {
+        return ByteArrayUtils.encodeInt(tbsIndex, new byte[4], 0);
+    }
+    static byte[] dbKey(int tbsIndex, byte[] key) {
+        byte[] dbKey = ByteArrayUtils.encodeInt(tbsIndex, new byte[key.length+4], 0);
+        System.arraycopy(key, 0, dbKey, 4, key.length);
+        return dbKey;
     }
 }

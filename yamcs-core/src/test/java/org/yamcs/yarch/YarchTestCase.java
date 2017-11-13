@@ -10,9 +10,9 @@ import java.util.concurrent.Semaphore;
 import org.yamcs.YConfiguration;
 import org.yamcs.utils.FileUtils;
 import org.yamcs.yarch.YarchDatabaseInstance;
+import org.yamcs.yarch.rocksdb.RdbStorageEngine;
 import org.junit.Before;
 import org.junit.BeforeClass;
-import org.yamcs.yarch.rocksdb.RdbStorageEngine;
 import org.yamcs.yarch.streamsql.ExecutionContext;
 import org.yamcs.yarch.streamsql.ParseException;
 import org.yamcs.yarch.streamsql.StreamSqlException;
@@ -53,7 +53,7 @@ public abstract class YarchTestCase {
 	
 	if(YarchDatabase.hasInstance(instance)) {	
 	    YarchDatabaseInstance ydb = YarchDatabase.getInstance(instance);
-	    RdbStorageEngine.removeInstance(ydb);
+	   // RdbStorageEngine.removeInstance(ydb);
 	    YarchDatabase.removeInstance(instance);		
 	}
 	

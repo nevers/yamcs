@@ -187,7 +187,7 @@ public class ArchiveTagRestHandler extends RestHandler {
     
     private static TagDb getTagDb(String yamcsInstance) throws HttpException {
         try {
-            return YarchDatabase.getInstance(yamcsInstance).getDefaultStorageEngine().getTagDb();
+            return YarchDatabase.getInstance(yamcsInstance).getTagDb();
         } catch (YarchException e) {
             throw new InternalServerErrorException("Could not load Tag DB", e);
         }

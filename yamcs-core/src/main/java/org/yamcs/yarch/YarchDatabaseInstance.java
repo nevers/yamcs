@@ -8,7 +8,6 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -16,11 +15,10 @@ import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.yamcs.ConfigurationException;
 import org.yamcs.YConfiguration;
 import org.yamcs.YamcsServer;
+import org.yamcs.archive.TagDb;
 import org.yamcs.management.ManagementService;
-import org.yamcs.yarch.rocksdb.RdbStorageEngine;
 import org.yamcs.yarch.streamsql.ExecutionContext;
 import org.yamcs.yarch.streamsql.ParseException;
 import org.yamcs.yarch.streamsql.StreamSqlException;
@@ -49,12 +47,6 @@ public class YarchDatabaseInstance {
     transient Map<String, AbstractStream> streams;
     static Logger log = LoggerFactory.getLogger(YarchDatabaseInstance.class.getName());
     static YConfiguration config;
-    
-    private Map<String, StorageEngine> storageEngines=new HashMap<>();
-    public static final String RDB_ENGINE_NAME="rocksdb";
-
-    private static final String DEFAULT_STORAGE_ENGINE = RDB_ENGINE_NAME;
-    private final String defaultStorageEngineName;
 
     static {
         config = YConfiguration.getConfiguration("yamcs");
@@ -66,35 +58,12 @@ public class YarchDatabaseInstance {
     //yamcs instance name (used to be called dbname)
     private String instanceName;
 
-    YarchDatabaseInstance(String dbname, boolean ignoreVersionIncompatibility) throws YarchException {
+    YarchDatabaseInstance(String dbname) throws YarchException {
         this.instanceName = dbname;
         mngService = ManagementService.getInstance();
         tables = new HashMap<>();
         streams = new HashMap<>();
 
-
-        List<String> se;
-        if(config.containsKey("storageEngines")) {
-            se = config.getList("storageEngines");
-        } else {
-            se = Arrays.asList(RDB_ENGINE_NAME);
-        }
-        if(config.containsKey("defaultStorageEngine")) {
-            defaultStorageEngineName = config.getString("defaultStorageEngine");
-            if(!RDB_ENGINE_NAME.equalsIgnoreCase(defaultStorageEngineName))  {
-                throw new ConfigurationException("Unknown storage engine: "+defaultStorageEngineName);
-            }
-        } else {
-            defaultStorageEngineName = DEFAULT_STORAGE_ENGINE;
-        }
-
-        if(se!=null) {
-            for(String s:se) {
-                if(RDB_ENGINE_NAME.equalsIgnoreCase(s)) {
-                    storageEngines.put(RDB_ENGINE_NAME, new RdbStorageEngine(this, ignoreVersionIncompatibility));
-                }
-            }
-        }
         loadTables();
     }
 
@@ -113,14 +82,6 @@ public class YarchDatabaseInstance {
 
     public String getYamcsInstance() {
         return instanceName;
-    }
-    
-    public String getDefaultStorageEngineName() {
-        return defaultStorageEngineName;
-    }
-
-    public StorageEngine getDefaultStorageEngine() {
-        return storageEngines.get(defaultStorageEngineName);
     }
 
 
@@ -147,7 +108,7 @@ public class YarchDatabaseInstance {
                             throw new YarchException("Do not have a storage engine '"+tblDef.getStorageEngineName()+"'. Check storageEngines key in yamcs.yaml");
                         }
 
-                        getStorageEngine(tblDef).loadTable(tblDef);
+                        getStorageEngine(tblDef).loadTable(this, tblDef);
                         mngService.registerTable(instanceName, tblDef);
                         tables.put(tblDef.getName(), tblDef);
                         log.debug("loaded table definition {} from {}", tblDef.getName(), f);
@@ -173,10 +134,10 @@ public class YarchDatabaseInstance {
         if(f.length()==0) {
             throw new IOException("Cannot load table definition from empty file "+f);
         }
-        String fn=f.getName();
+        String fn = f.getName();
         String tblName=fn.substring(0,fn.length()-4);
         Yaml yaml = new Yaml(new TableDefinitionConstructor());
-        FileInputStream fis=new FileInputStream(f);
+        FileInputStream fis = new FileInputStream(f);
         Object o = yaml.load(fis);
         if(!(o instanceof TableDefinition)) {
             fis.close();
@@ -260,11 +221,11 @@ public class YarchDatabaseInstance {
         if(!def.hasCustomDataDir()) {
             def.setDataDir(getRoot());
         }
-        StorageEngine se = storageEngines.get(def.getStorageEngineName());
+        StorageEngine se = YarchDatabase.getStorageEngine(def.getStorageEngineName());
         if(se==null) {
-            throw new YarchException("Invalid storage engine '"+def.getStorageEngineName()+"' specified. Valid names are: "+storageEngines.keySet());
+            throw new YarchException("Invalid storage engine '"+def.getStorageEngineName()+"' specified. Valid names are: "+YarchDatabase.getStorageEngineNamesk());
         }
-        se.createTable(def);
+        se.createTable(this, def);
 
         tables.put(def.getName(),def);
         def.setDb(this);
@@ -323,7 +284,7 @@ public class YarchDatabaseInstance {
         if(mngService!=null) {
             mngService.unregisterTable(instanceName, tblName);
         }
-        getStorageEngine(tbl).dropTable(tbl);
+        getStorageEngine(tbl).dropTable(this, tbl);
         File f=new File(getRoot()+"/"+tblName+".def");
         if(!f.delete()) {
             throw new YarchException("Cannot remove "+f);
@@ -339,7 +300,7 @@ public class YarchDatabaseInstance {
     }
 
     public StorageEngine getStorageEngine(TableDefinition tbldef) {
-        return storageEngines.get(tbldef.getStorageEngineName());
+        return YarchDatabase.getStorageEngine(tbldef.getStorageEngineName());
     }
 
 
@@ -378,5 +339,9 @@ public class YarchDatabaseInstance {
         for(Stream s: l) {
             s.close();
         }
+    }
+
+    public TagDb getTagDb() throws YarchException {
+        return YarchDatabase.getDefaultStorageEngine().getTagDb(this);
     }
 }

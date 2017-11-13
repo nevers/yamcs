@@ -24,8 +24,8 @@ import org.yamcs.web.InternalServerErrorException;
 import org.yamcs.web.rest.RestHandler;
 import org.yamcs.web.rest.RestRequest;
 import org.yamcs.web.rest.Route;
-import org.yamcs.yarch.rocksdb.RDBFactory;
-import org.yamcs.yarch.rocksdb.YRDB;
+import org.yamcs.yarch.oldrocksdb.RDBFactory;
+import org.yamcs.yarch.oldrocksdb.YRDB;
 
 public class RocksDbMaintenanceRestHandler extends RestHandler {
     private static final Logger log = LoggerFactory.getLogger(RocksDbMaintenanceRestHandler.class);

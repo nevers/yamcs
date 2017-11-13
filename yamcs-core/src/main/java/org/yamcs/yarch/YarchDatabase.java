@@ -1,10 +1,15 @@
 package org.yamcs.yarch;
 
 import java.io.File;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
+import org.yamcs.ConfigurationException;
 import org.yamcs.YConfiguration;
+import org.yamcs.yarch.rocksdb.RdbStorageEngine;
 
 /**
  * Handles all tables/streams/indexes for a Yamcs server
@@ -17,9 +22,39 @@ public class YarchDatabase {
     private static String home;
     static YConfiguration config;
     
+    private static Map<String, StorageEngine> storageEngines=new HashMap<>();
+    public static final String OLD_RDB_ENGINE_NAME="rocksdb";
+    public static final String RDB_ENGINE_NAME="rocksdb2";
+    private static final String DEFAULT_STORAGE_ENGINE = RDB_ENGINE_NAME;
+    private static final String defaultStorageEngineName;
+
     static {
         config = YConfiguration.getConfiguration("yamcs");
         home = config.getString("dataDir");
+
+        List<String> se;
+        if(config.containsKey("storageEngines")) {
+            se = config.getList("storageEngines");
+        } else {
+            se = Arrays.asList(RDB_ENGINE_NAME, OLD_RDB_ENGINE_NAME);
+        }
+        if(config.containsKey("defaultStorageEngine")) {
+            defaultStorageEngineName = config.getString("defaultStorageEngine");
+            if(!RDB_ENGINE_NAME.equalsIgnoreCase(defaultStorageEngineName))  {
+                throw new ConfigurationException("Unknown storage engine: "+defaultStorageEngineName);
+            }
+        } else {
+            defaultStorageEngineName = DEFAULT_STORAGE_ENGINE;
+        }
+
+        if(se!=null) {
+            for(String s:se) {
+                if(RDB_ENGINE_NAME.equalsIgnoreCase(s)) {
+                    storageEngines.put(RDB_ENGINE_NAME, RdbStorageEngine.getInstance());
+                }
+            }
+        }
+
     } 
     static Map<String,YarchDatabaseInstance> databases = new HashMap<>();
     /**
@@ -32,7 +67,7 @@ public class YarchDatabase {
         YarchDatabaseInstance instance = databases.get(yamcsInstance);
         if(instance==null) {
             try {
-                instance = new YarchDatabaseInstance(yamcsInstance, ignoreVersionIncompatibility);
+                instance = new YarchDatabaseInstance(yamcsInstance);
             } catch (YarchException e) {
                 throw new RuntimeException("Cannot create database '"+yamcsInstance+"'", e);
             }
@@ -68,5 +103,21 @@ public class YarchDatabase {
 
     public static String getHome() {
         return home;
+    }
+    public static String getDataDir() {
+        return home;
+    }
+
+    public static StorageEngine getDefaultStorageEngine() {
+        return storageEngines.get(defaultStorageEngineName);
+    }
+    public static StorageEngine getStorageEngine(String storageEngineName) {
+        return storageEngines.get(storageEngineName);
+    }
+    public static Set<String> getStorageEngineNamesk() {
+        return storageEngines.keySet();
+    }
+    public static String getDefaultStorageEngineName() {
+        return defaultStorageEngineName;
     }
 }

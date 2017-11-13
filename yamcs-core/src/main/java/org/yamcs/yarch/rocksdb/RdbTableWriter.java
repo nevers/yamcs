@@ -2,58 +2,56 @@ package org.yamcs.yarch.rocksdb;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.concurrent.ExecutionException;
+import java.util.List;
 
-import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.RocksDBException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.yamcs.CrashHandler;
-import org.yamcs.EventCrashHandler;
-import org.yamcs.YamcsServer;
-import org.yamcs.api.EventProducer;
-import org.yamcs.api.EventProducerFactory;
+import org.yamcs.utils.ByteArrayUtils;
 import org.yamcs.utils.TimeEncoding;
 import org.yamcs.yarch.ColumnDefinition;
+import org.yamcs.yarch.ColumnSerializer;
 import org.yamcs.yarch.DataType;
+import org.yamcs.yarch.HistogramSegment;
 import org.yamcs.yarch.PartitioningSpec;
 import org.yamcs.yarch.Stream;
 import org.yamcs.yarch.TableDefinition;
+import org.yamcs.yarch.TableWriter;
 import org.yamcs.yarch.Tuple;
 import org.yamcs.yarch.TupleDefinition;
 import org.yamcs.yarch.YarchDatabaseInstance;
 
+import static org.yamcs.yarch.rocksdb.RdbStorageEngine.dbKey;
+
+
 /**
- * table writer that stores each partition by value in a different column family.
- * 
- * It is also used when the table is not partitioned by value
+ * table writer that prepends the partition binary value in front of the key
  * 
  * @author nm
  *
  */
-public class CfTableWriter extends AbstractTableWriter {
+public class RdbTableWriter extends TableWriter {
     private final RdbPartitionManager partitionManager;
     private final PartitioningSpec partitioningSpec;
-    Logger log=LoggerFactory.getLogger(this.getClass().getName());
-    RDBFactory rdbFactory;
-    CrashHandler crashHandler;
-
-    public CfTableWriter(YarchDatabaseInstance ydb, TableDefinition tableDefinition, InsertMode mode, RdbPartitionManager pm) throws IOException {
+    Logger log = LoggerFactory.getLogger(this.getClass().getName());
+    static final byte[] zerobytes = new byte[0]; 
+    Tablespace tablespace;
+    
+    public RdbTableWriter(Tablespace tablespace, YarchDatabaseInstance ydb, TableDefinition tableDefinition, InsertMode mode, RdbPartitionManager pm) throws IOException {
         super(ydb, tableDefinition, mode);
         this.partitioningSpec = tableDefinition.getPartitioningSpec();
         this.partitionManager = pm;
-        rdbFactory = RDBFactory.getInstance(ydb.getName());
-        crashHandler = YamcsServer.getCrashHandler(ydb.getName());
+        this.tablespace = tablespace;
     }
 
     @Override
     public void onTuple(Stream stream, Tuple t) {
         try {
             RdbPartition partition = getDbPartition(t);
-            YRDB db = rdbFactory.getRdb(tableDefinition.getDataDir()+"/"+partition.dir, false);
+            YRDB db = tablespace.getRdb(partition, false);
 
-            boolean inserted = false;
-            boolean updated = false;
+            boolean inserted=false;
+            boolean updated=false;
 
             switch (mode) {
             case INSERT:
@@ -64,44 +62,37 @@ public class CfTableWriter extends AbstractTableWriter {
                 updated=!inserted;
                 break;
             case INSERT_APPEND:
-                inserted = insertAppend(db, partition, t);
+                inserted=insertAppend(db, partition, t);
                 break;
             case UPSERT_APPEND:
                 inserted=upsertAppend(db, partition, t);
                 updated=!inserted;
                 break;
             }
-            
+           
             if(inserted && tableDefinition.hasHistogram()) {
                 addHistogram(db, t);
             }
-            
             if(updated && tableDefinition.hasHistogram()) {
                 // TODO updateHistogram(t);
             }
-            rdbFactory.dispose(db);
+            tablespace.dispose(db);
         } catch (IOException e) {
             log.error("failed to insert a record: ", e);
             e.printStackTrace();
-            crashHandler.handleCrash("IO", "failed to insert a record: " + e.getMessage());
         } catch (RocksDBException e) {
             log.error("failed to insert a record: ", e);
             e.printStackTrace();
-            crashHandler.handleCrash("RocksDb", "failed to insert a record: " + e.getMessage());
         }
+
     }
-
-
-
+  
     private boolean insert(YRDB db, RdbPartition partition, Tuple t) throws RocksDBException {
-        byte[] k = tableDefinition.serializeKey(t);
+        byte[] k = getPartitionKey(partition, tableDefinition.serializeKey(t));
         byte[] v = tableDefinition.serializeValue(t);
-        ColumnFamilyHandle cfh = db.getColumnFamilyHandle(partition.binaryValue);
-        if(cfh==null) {
-            cfh = db.createColumnFamily(partition.binaryValue);
-        }
-        if(db.get(cfh, k)==null) {
-            db.put(cfh, k, v);
+
+        if(db.get(k)==null) {
+            db.put(k, v);
             return true;
         } else {
             return false;
@@ -109,20 +100,18 @@ public class CfTableWriter extends AbstractTableWriter {
     }
 
     private boolean upsert(YRDB db, RdbPartition partition, Tuple t) throws RocksDBException {
-        byte[] k=tableDefinition.serializeKey(t);
-        byte[] v=tableDefinition.serializeValue(t);
-        ColumnFamilyHandle cfh = db.getColumnFamilyHandle(partition.binaryValue);
-        if(cfh==null) {
-            cfh = db.createColumnFamily(partition.binaryValue);
-        }
-        if(db.get(cfh, k)==null) {
-            db.put(cfh, k, v);
+        byte[] k = getPartitionKey(partition, tableDefinition.serializeKey(t));
+        byte[] v = tableDefinition.serializeValue(t);
+
+        if(db.get(k)==null) {
+            db.put(k, v);
             return true;
         } else {
-            db.put(cfh, k, v);
+            db.put(k, v);
             return false;
         }
     }
+
 
     /**
      * returns true if a new record has been inserted and false if an record was already existing with this key (even if modified)
@@ -130,12 +119,8 @@ public class CfTableWriter extends AbstractTableWriter {
      * @throws RocksDBException 
      */
     private boolean insertAppend(YRDB db, RdbPartition partition, Tuple t) throws RocksDBException {
-        byte[] k = tableDefinition.serializeKey(t);
-        ColumnFamilyHandle cfh = db.getColumnFamilyHandle(partition.binaryValue);
-        if(cfh==null) {
-            cfh = db.createColumnFamily(partition.binaryValue);
-        }
-        byte[] v=db.get(cfh, k);
+        byte[] k = getPartitionKey(partition, tableDefinition.serializeKey(t));
+        byte[] v = db.get(k);
         boolean inserted=false;
         if(v!=null) {//append to an existing row
             Tuple oldt=tableDefinition.deserialize(k, v);
@@ -155,24 +140,21 @@ public class CfTableWriter extends AbstractTableWriter {
             if(changed) {
                 oldt.setColumns(cols);
                 v=tableDefinition.serializeValue(oldt);
-                db.put(cfh, k, v);
+                db.put(k, v);
             }
         } else {//new row
-            inserted=true;
-            v=tableDefinition.serializeValue(t);
-            db.put(cfh, k, v);
+            inserted = true;
+            v = tableDefinition.serializeValue(t);
+            db.put(k, v);
         }
         return inserted;
     }
 
-	private boolean upsertAppend(YRDB db, RdbPartition partition, Tuple t) throws RocksDBException {
-        byte[] k=tableDefinition.serializeKey(t);
-        ColumnFamilyHandle cfh = db.getColumnFamilyHandle(partition.binaryValue);
-        if(cfh==null) {
-            cfh = db.createColumnFamily(partition.binaryValue);
-        }
-        byte[] v = db.get(cfh, k);
-        boolean inserted = false;
+    private boolean upsertAppend(YRDB db, RdbPartition partition, Tuple t) throws RocksDBException {
+        byte[] k = getPartitionKey(partition, tableDefinition.serializeKey(t));
+       
+        byte[] v = db.get(k);
+        boolean inserted=false;
         if(v!=null) {//append to an existing row
             Tuple oldt=tableDefinition.deserialize(k, v);
             TupleDefinition tdef=t.getDefinition();
@@ -195,16 +177,22 @@ public class CfTableWriter extends AbstractTableWriter {
             if(changed) {
                 oldt.setColumns(cols);
                 v=tableDefinition.serializeValue(oldt);
-                db.put(cfh, k, v);
+                db.put(k, v);
             }
         } else {//new row
             inserted=true;
             v=tableDefinition.serializeValue(t);
-            db.put(cfh, k, v);
+            db.put(k, v);
         }
         return inserted;
     }
 
+    //prepends the partition binary value to the key 
+    private byte[] getPartitionKey(RdbPartition partition, byte[] k) {     
+        byte[] pk = ByteArrayUtils.encodeInt(partition.tbsIndex, new byte[4+k.length], 0);       
+        System.arraycopy(k, 0, pk, 4, k.length);
+        return pk;
+    }
     /**
      * get the filename where the tuple would fit (can be a partition)
      * @param t
@@ -212,7 +200,7 @@ public class CfTableWriter extends AbstractTableWriter {
      * @throws IOException if there was an error while creating the directories where the file should be located
      */
     public RdbPartition getDbPartition(Tuple t) throws IOException {
-        long time = TimeEncoding.INVALID_INSTANT;
+        long time=TimeEncoding.INVALID_INSTANT;
         Object value=null;
         if(partitioningSpec.timeColumn!=null) {
             time =(Long)t.getColumn(partitioningSpec.timeColumn);
@@ -226,12 +214,46 @@ public class CfTableWriter extends AbstractTableWriter {
         }
         return (RdbPartition)partitionManager.createAndGetPartition(time, value);
     }
-    @Override
-    public void streamClosed(Stream stream) {                
-    }
-
+    
     public void close() {
     }
     
- 
+    @Override
+    public void streamClosed(Stream stream) {
+
+    }
+    
+    
+    
+    protected synchronized void addHistogram(YRDB db, Tuple t) throws IOException, RocksDBException {
+        List<String> histoColumns = tableDefinition.getHistogramColumns();
+        for(String columnName: histoColumns) {
+            if(!t.hasColumn(columnName)) {
+                continue;
+            }
+            long time = (Long)t.getColumn(0);
+            RdbHistogramInfo histo = (RdbHistogramInfo) partitionManager.createAndGetHistogram(time, columnName);
+            ColumnSerializer cs = tableDefinition.getColumnSerializer(columnName);
+            byte[] v = cs.toByteArray(t.getColumn(columnName));
+            addHistogramForColumn(db, histo.tbsIndex, v, time);
+        }
+    }
+
+
+    private void addHistogramForColumn(YRDB db, int  histoTbsIndex, byte[] columnv, long time) throws RocksDBException {
+        long sstart = time/HistogramSegment.GROUPING_FACTOR;
+        int dtime = (int)(time%HistogramSegment.GROUPING_FACTOR);
+
+        HistogramSegment segment;
+        byte[] key = HistogramSegment.key(sstart, columnv);
+        byte[] val = db.get(dbKey(histoTbsIndex, key));
+        if(val==null) {
+            segment = new HistogramSegment(columnv, sstart);
+        } else {
+            segment = new HistogramSegment(columnv, sstart, val);
+        }
+
+        segment.merge(dtime);
+        db.put(dbKey(histoTbsIndex, segment.key()), segment.val());
+    }
 }

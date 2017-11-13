@@ -82,7 +82,7 @@ public class TableDefinition {
     private boolean compressed;
     private PartitioningSpec partitioningSpec = PartitioningSpec.noneSpec();
 
-    private String storageEngineName = YarchDatabaseInstance.RDB_ENGINE_NAME;
+    private String storageEngineName = YarchDatabase.RDB_ENGINE_NAME;
 
     transient private String name; //we make this transient such that tables names can be changed by changing the filename
     private List<String> histoColumns;
@@ -93,6 +93,9 @@ public class TableDefinition {
     //mapping from String to short for the columns of type enum
     Map<String, BiMap<String,Short>> serializedEmumValues;
     private volatile Map<String, BiMap<String,Short>> enumValues;
+    
+    //used for new rocksdb storage engine
+    private String tablespaceName;
 
     /**
      * Used when creating an "empty"(i.e. no enum values) table via sql. 
@@ -233,15 +236,20 @@ public class TableDefinition {
         return customDataDir;
     }
 
-
+    /**
+     * 
+     * @deprecated - used by the oldrocksdb - for the new one tablespaces can be used
+     */
+    @Deprecated
     public String getDataDir() {
         return dataDir;
     }
 
     /**
      * sets dataDir to this value
-     * @param dataDir
+     * @deprecated - used by the oldrocksdb - for the new one tablespaces can be used
      */
+    @Deprecated
     public void setDataDir(String dataDir) {
         this.dataDir = dataDir;
     }
@@ -578,10 +586,19 @@ public class TableDefinition {
         this.storageEngineName = storageEngineName;
     }
 
+    
+    /**
+     * @deprecated used for the oldrocksdb 
+     */
+    @Deprecated
     public PartitionStorage getPartitionStorage() {
         return partitionStorage;
     }
-
+    
+    /**
+     * @deprecated used for the oldrocksdb 
+     */
+    @Deprecated
     public void setPartitionStorage(PartitionStorage partitionStorage) {
         this.partitionStorage = partitionStorage;
     }
@@ -596,5 +613,13 @@ public class TableDefinition {
 
     void setFormatVersion(int formatVersion) {
         this.formatVersion = formatVersion;
+    }
+
+    public String getTablespaceName() {
+        return tablespaceName;
+    }
+
+    public void setTablespaceName(String tablespaceName) {
+        this.tablespaceName = tablespaceName;
     }
 }

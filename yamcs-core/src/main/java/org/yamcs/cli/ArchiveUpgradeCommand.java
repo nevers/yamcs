@@ -13,7 +13,7 @@ import org.yamcs.yarch.TupleDefinition;
 import org.yamcs.yarch.YarchDatabase;
 import org.yamcs.yarch.YarchDatabaseInstance;
 import org.yamcs.yarch.YarchException;
-import org.yamcs.yarch.rocksdb.HistogramRebuilder;
+import org.yamcs.yarch.oldrocksdb.HistogramRebuilder;
 
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;

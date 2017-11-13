@@ -24,9 +24,10 @@ import org.yamcs.yarch.StreamSubscriber;
 import org.yamcs.yarch.TableDefinition;
 import org.yamcs.yarch.TableWriter;
 import org.yamcs.yarch.TableWriter.InsertMode;
+import org.yamcs.yarch.rocksdb.RdbStorageEngine;
 import org.yamcs.yarch.Tuple;
 import org.yamcs.yarch.TupleDefinition;
-import org.yamcs.yarch.YarchDatabaseInstance;
+import org.yamcs.yarch.YarchDatabase;
 import org.yamcs.yarch.YarchException;
 import org.yamcs.yarch.YarchTestCase;
 import org.yamcs.yarch.TableDefinition.PartitionStorage;
@@ -63,12 +64,12 @@ public class RdbSelectTest extends YarchTestCase {
         pspec.setValueColumnType(DataType.INT);
         tblDef.setPartitioningSpec(pspec);
         
-        tblDef.setStorageEngineName(YarchDatabaseInstance.RDB_ENGINE_NAME);
+        tblDef.setStorageEngineName(YarchDatabase.OLD_RDB_ENGINE_NAME);
         
         ydb.createTable(tblDef);
         
         RdbStorageEngine rse = (RdbStorageEngine) ydb.getStorageEngine(tblDef);
-        tw = rse.newTableWriter(tblDef, InsertMode.INSERT);
+        tw = rse.newTableWriter(ydb, tblDef, InsertMode.INSERT);
         tw.onTuple(null, new Tuple(tdef, new Object[]{2000L, 20, 2}));
         tw.onTuple(null, new Tuple(tdef, new Object[]{1000L, 10, 1}));
         tw.onTuple(null, new Tuple(tdef, new Object[]{3000L, 30, 3}));

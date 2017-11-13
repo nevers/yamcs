@@ -109,6 +109,9 @@ public class YRDB {
         return db.newIterators(cfhList, ro);
     }
 
+    public RocksIterator newIterator() throws RocksDBException {
+        return db.newIterator();
+    }
 
     public RocksIterator newIterator(ColumnFamilyHandle cfh) throws RocksDBException {
         return db.newIterator(cfh);
@@ -281,5 +284,12 @@ public class YRDB {
             return l;
         } 
     }
+
+    public void deleteAllWithPrefix(byte[] b) {
+        // TODO Auto-generated method stub
+        
+    }
+
+   
 
 }

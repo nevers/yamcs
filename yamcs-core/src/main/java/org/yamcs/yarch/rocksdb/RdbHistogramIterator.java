@@ -1,27 +1,23 @@
 package org.yamcs.yarch.rocksdb;
 
-import java.io.IOException;
+
 import java.nio.ByteBuffer;
 import java.util.Iterator;
-import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.PriorityQueue;
 
-import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.RocksDBException;
-import org.rocksdb.RocksIterator;
 import org.slf4j.Logger;
 import org.yamcs.TimeInterval;
+import org.yamcs.utils.ByteArrayUtils;
 import org.yamcs.utils.LoggingUtils;
 import org.yamcs.yarch.HistogramRecord;
 import org.yamcs.yarch.HistogramSegment;
-import org.yamcs.yarch.Partition;
 import org.yamcs.yarch.PartitionManager;
 import org.yamcs.yarch.TableDefinition;
 import org.yamcs.yarch.YarchDatabaseInstance;
 
-import static org.yamcs.yarch.rocksdb.CfTableWriter.zerobytes;
-
+import static org.yamcs.yarch.HistogramSegment.segmentStart;
 /**
  * 
  * @author nm
@@ -29,71 +25,76 @@ import static org.yamcs.yarch.rocksdb.CfTableWriter.zerobytes;
  */
 class RdbHistogramIterator implements Iterator<HistogramRecord> {
 
-    private Iterator<List<Partition>> partitionIterator;
-    private RocksIterator segmentIterator;
+    private Iterator<PartitionManager.Interval> intervalIterator;
+    private AscendingRangeIterator segmentIterator;
 
     private PriorityQueue<HistogramRecord> records = new PriorityQueue<>();
 
     private final TimeInterval interval;
     private final long mergeTime;
+    private final Tablespace tablespace;
 
     YarchDatabaseInstance ydb;
     TableDefinition tblDef;
     YRDB rdb;
+
 
     Logger log;
     String colName;
     boolean stopReached = false;
 
     //FIXME: mergeTime does not merge records across partitions or segments
-    public RdbHistogramIterator(YarchDatabaseInstance ydb, TableDefinition tblDef, String colName, TimeInterval interval, long mergeTime) throws RocksDBException {
+    public RdbHistogramIterator(Tablespace tablespace, YarchDatabaseInstance ydb, TableDefinition tblDef, String colName, TimeInterval interval, long mergeTime) throws RocksDBException {
         this.interval = interval;
         this.mergeTime = mergeTime;
         this.ydb = ydb;
         this.tblDef = tblDef;
         this.colName = colName;
+        this.tablespace = tablespace;
 
-        PartitionManager partMgr = RdbStorageEngine.getInstance(ydb).getPartitionManager(tblDef);
-        partitionIterator = partMgr.iterator(interval.getStart(), null);
+        PartitionManager partMgr = RdbStorageEngine.getInstance().getPartitionManager(tblDef);
+        intervalIterator = partMgr.intervalIterator(interval.getStart());
         log = LoggingUtils.getLogger(this.getClass(), ydb.getName(), tblDef);
         readNextPartition();
     }
 
     private void readNextPartition() throws RocksDBException {
-        try {
-            while(partitionIterator.hasNext()) {
-                RdbPartition part  = (RdbPartition) partitionIterator.next().get(0);
-                if(interval.hasStop() && part.getStart()>interval.getStop()) {
-                    break; //finished
-                }
-                RDBFactory rdbf = RDBFactory.getInstance(ydb.getName());
-                String dbDir = part.dir;
-
-                log.debug("opening database {}", dbDir);
-                if(rdb!=null) {
-                    rdbf.dispose(rdb);
-                }
-                rdb = rdbf.getRdb(tblDef.getDataDir()+"/"+dbDir, false);
-                String histoCfName = InKeyTableWriter.getHistogramColumnFamilyName(colName);
-                ColumnFamilyHandle cfh = rdb.getColumnFamilyHandle(histoCfName);
-                if(cfh!=null) {
-                    segmentIterator = rdb.newIterator(cfh);
-                    if(!interval.hasStart()) {
-                        segmentIterator.seek(HistogramSegment.key(0, zerobytes));
-                    } else {
-                        int sstart=(int)(interval.getStart()/HistogramSegment.GROUPING_FACTOR);
-                        segmentIterator.seek(HistogramSegment.key(sstart, zerobytes));
-                    }
-
-                    if(segmentIterator.isValid()) {
-                        readNextSegments();
-                        break;
-                    }
-                }
-                rdbf.dispose(rdb);
+        while(intervalIterator.hasNext()) {
+            PartitionManager.Interval intv = intervalIterator.next();
+            if(interval.hasStop() && intv.getStart()>interval.getStop()) {
+                break; //finished
             }
-        } catch (IOException e) {
-            log.error("Failed to open database", e);
+
+            if(rdb!=null) {
+                tablespace.dispose(rdb);
+            }
+
+            RdbHistogramInfo hist = (RdbHistogramInfo) intv.getHistogram(colName);
+            rdb = tablespace.getRdb(hist, false);
+            long segStart = interval.hasStart()?segmentStart(interval.getStart()):0;
+            byte[] dbKeyStart = ByteArrayUtils.encodeInt(hist.tbsIndex, new byte[12], 0);
+            ByteArrayUtils.encodeLong(segStart, dbKeyStart, 4);
+
+            boolean strictEnd;
+            byte[] dbKeyStop;
+            if(interval.hasStop()) {
+                strictEnd = false;
+                dbKeyStop = ByteArrayUtils.encodeInt(hist.tbsIndex, new byte[12], 0);
+                ByteArrayUtils.encodeLong(segStart, dbKeyStop, 4);
+            } else {
+                dbKeyStop = ByteArrayUtils.encodeInt(hist.tbsIndex+1, new byte[12], 0);
+                strictEnd = true;
+            }
+
+
+
+            segmentIterator = new AscendingRangeIterator(rdb.newIterator(), dbKeyStart, false, dbKeyStop, strictEnd);
+
+            if(segmentIterator.isValid()) {
+                readNextSegments();
+                break;
+            }
+            tablespace.dispose(rdb);
         }
     }
 
@@ -105,7 +106,7 @@ class RdbHistogramIterator implements Iterator<HistogramRecord> {
             readNextPartition();
             return;
         }
-        
+
         while(true) {
             boolean beyondStop = addRecords(segmentIterator.key(), segmentIterator.value());
             if(beyondStop) {
@@ -127,7 +128,7 @@ class RdbHistogramIterator implements Iterator<HistogramRecord> {
 
     public void close() {
         if(rdb!=null) {
-            RDBFactory.getInstance(ydb.getName()).dispose(rdb);
+            tablespace.dispose(rdb);
             rdb = null;
         }
     }
@@ -186,7 +187,7 @@ class RdbHistogramIterator implements Iterator<HistogramRecord> {
             try {
                 readNextSegments();
             } catch (RocksDBException e) {
-               throw new RuntimeException(e);
+                throw new RuntimeException(e);
             }
         }
         return r;

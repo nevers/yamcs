@@ -26,10 +26,12 @@ import org.yamcs.yarch.TableDefinition;
 import org.yamcs.yarch.TableWriter;
 import org.yamcs.yarch.Tuple;
 import org.yamcs.yarch.TupleDefinition;
+import org.yamcs.yarch.YarchDatabase;
 import org.yamcs.yarch.YarchDatabaseInstance;
 import org.yamcs.yarch.YarchException;
 import org.yamcs.yarch.YarchTestCase;
 import org.yamcs.yarch.TableWriter.InsertMode;
+import org.yamcs.yarch.rocksdb.RdbStorageEngine;
 import org.yamcs.yarch.streamsql.StreamSqlException;
 
 import com.google.common.io.Files;
@@ -49,7 +51,7 @@ public class RdbSelectPerfTest extends YarchTestCase {
 
     void populate(TableDefinition tblDef, int n, boolean timeFirst) throws Exception {        
         RdbStorageEngine rse = (RdbStorageEngine) ydb.getStorageEngine(tblDef);
-        tw = rse.newTableWriter(tblDef, InsertMode.INSERT);
+        tw = rse.newTableWriter(ydb, tblDef, InsertMode.INSERT);
 
         long baseTime = TimeEncoding.parse("2015-01-01T00:00:00");
 
@@ -143,7 +145,7 @@ public class RdbSelectPerfTest extends YarchTestCase {
         pspec.setValueColumnType(DataType.ENUM);
         tblDef.setPartitioningSpec(pspec);
 
-        tblDef.setStorageEngineName(YarchDatabaseInstance.RDB_ENGINE_NAME);
+        tblDef.setStorageEngineName(YarchDatabase.OLD_RDB_ENGINE_NAME);
 
         ydb.createTable(tblDef);
         populateAndRead(tblDef, true);
@@ -165,7 +167,7 @@ public class RdbSelectPerfTest extends YarchTestCase {
         pspec.setTimePartitioningSchema("YYYY");
         tblDef.setPartitioningSpec(pspec);
 
-        tblDef.setStorageEngineName(YarchDatabaseInstance.RDB_ENGINE_NAME);
+        tblDef.setStorageEngineName(YarchDatabase.OLD_RDB_ENGINE_NAME);
 
         ydb.createTable(tblDef);
 
@@ -188,7 +190,7 @@ public class RdbSelectPerfTest extends YarchTestCase {
         PartitioningSpec pspec = PartitioningSpec.noneSpec();
         tblDef.setPartitioningSpec(pspec);
 
-        tblDef.setStorageEngineName(YarchDatabaseInstance.RDB_ENGINE_NAME);
+        tblDef.setStorageEngineName(YarchDatabase.OLD_RDB_ENGINE_NAME);
 
         ydb.createTable(tblDef);
 

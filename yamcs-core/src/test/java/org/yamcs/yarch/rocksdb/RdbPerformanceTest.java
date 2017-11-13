@@ -2,11 +2,8 @@ package org.yamcs.yarch.rocksdb;
 
 import static org.junit.Assert.assertEquals;
 
-import java.io.File;
 import java.lang.management.ManagementFactory;
 import java.lang.management.OperatingSystemMXBean;
-
-import com.sun.management.UnixOperatingSystemMXBean;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -34,9 +31,10 @@ import org.yamcs.yarch.TableDefinition;
 import org.yamcs.yarch.TableWriter;
 import org.yamcs.yarch.Tuple;
 import org.yamcs.yarch.TupleDefinition;
-import org.yamcs.yarch.YarchDatabaseInstance;
+import org.yamcs.yarch.YarchDatabase;
 import org.yamcs.yarch.YarchTestCase;
 import org.yamcs.yarch.TableWriter.InsertMode;
+import org.yamcs.yarch.rocksdb.RdbStorageEngine;
 
 @Ignore //note that this one does not cleanup the test directory resulting in error if run multiple times
 public class RdbPerformanceTest extends YarchTestCase {
@@ -54,7 +52,7 @@ public class RdbPerformanceTest extends YarchTestCase {
 
     void populate(TableDefinition tblDef, int n, boolean timeFirst) throws Exception {        
         RdbStorageEngine rse = (RdbStorageEngine) ydb.getStorageEngine(tblDef);
-        tw = rse.newTableWriter(tblDef, InsertMode.INSERT);
+        tw = rse.newTableWriter(ydb, tblDef, InsertMode.INSERT);
 
         long baseTime = TimeEncoding.parse("2015-01-01T00:00:00");
 
@@ -151,7 +149,7 @@ public class RdbPerformanceTest extends YarchTestCase {
         pspec.setValueColumnType(DataType.ENUM);
         tblDef.setPartitioningSpec(pspec);
 
-        tblDef.setStorageEngineName(YarchDatabaseInstance.RDB_ENGINE_NAME);
+        tblDef.setStorageEngineName(YarchDatabase.OLD_RDB_ENGINE_NAME);
 
         ydb.createTable(tblDef);
         populateAndRead(tblDef, true);
@@ -173,7 +171,7 @@ public class RdbPerformanceTest extends YarchTestCase {
         pspec.setTimePartitioningSchema("YYYY");
         tblDef.setPartitioningSpec(pspec);
 
-        tblDef.setStorageEngineName(YarchDatabaseInstance.RDB_ENGINE_NAME);
+        tblDef.setStorageEngineName(YarchDatabase.OLD_RDB_ENGINE_NAME);
 
         ydb.createTable(tblDef);
 
@@ -196,7 +194,7 @@ public class RdbPerformanceTest extends YarchTestCase {
         PartitioningSpec pspec = PartitioningSpec.noneSpec();
         tblDef.setPartitioningSpec(pspec);
 
-        tblDef.setStorageEngineName(YarchDatabaseInstance.RDB_ENGINE_NAME);
+        tblDef.setStorageEngineName(YarchDatabase.OLD_RDB_ENGINE_NAME);
 
         ydb.createTable(tblDef);
         
@@ -218,18 +216,12 @@ public class RdbPerformanceTest extends YarchTestCase {
         DBOptions dboptions = new DBOptions();
         dboptions.setMaxOpenFiles(22);
         OperatingSystemMXBean os = ManagementFactory.getOperatingSystemMXBean();
-        if(os instanceof UnixOperatingSystemMXBean) {
-            System.out.println("Before DB open, number of open fd: " + ((UnixOperatingSystemMXBean) os).getOpenFileDescriptorCount());
-        }
         for(byte[] b: cfl) {
             cfdList.add(new ColumnFamilyDescriptor(b, cfoptions));                                 
         }
         
         List<ColumnFamilyHandle> cfhList = new ArrayList<ColumnFamilyHandle>(cfl.size());
         RocksDB db = RocksDB.open(dboptions, dir, cfdList, cfhList);
-        if(os instanceof UnixOperatingSystemMXBean){
-            System.out.println("after opening the db, number of open fd: " + ((UnixOperatingSystemMXBean) os).getOpenFileDescriptorCount());
-        }
         RocksIterator[] its = new RocksIterator[30];
         int n = 100000;
         int c=0;
@@ -248,19 +240,10 @@ public class RdbPerformanceTest extends YarchTestCase {
         }
        
         
-        if(os instanceof UnixOperatingSystemMXBean){
-            System.out.println("after opening the iterators, number of open fd: " + ((UnixOperatingSystemMXBean) os).getOpenFileDescriptorCount());
-        }
         for (int k=0;k<its.length; k++) {
             its[k].dispose();
         }
-        if(os instanceof UnixOperatingSystemMXBean){
-            System.out.println("after closing the iterators, number of open fd: " + ((UnixOperatingSystemMXBean) os).getOpenFileDescriptorCount());
-        }
         db.close();
-        if(os instanceof UnixOperatingSystemMXBean){
-            System.out.println("after closing the db, number of open fd: " + ((UnixOperatingSystemMXBean) os).getOpenFileDescriptorCount());
-        }
     }
 
 
