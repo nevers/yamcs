@@ -7,7 +7,9 @@ import java.util.List;
 import org.rocksdb.RocksDBException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.yamcs.YamcsServer;
 import org.yamcs.utils.ByteArrayUtils;
+import org.yamcs.utils.StringConverter;
 import org.yamcs.utils.TimeEncoding;
 import org.yamcs.yarch.ColumnDefinition;
 import org.yamcs.yarch.ColumnSerializer;
@@ -52,7 +54,6 @@ public class RdbTableWriter extends TableWriter {
 
             boolean inserted=false;
             boolean updated=false;
-
             switch (mode) {
             case INSERT:
                 inserted = insert(db, partition, t);
@@ -77,12 +78,9 @@ public class RdbTableWriter extends TableWriter {
                 // TODO updateHistogram(t);
             }
             tablespace.dispose(db);
-        } catch (IOException e) {
+        } catch (IOException|RocksDBException e) {
             log.error("failed to insert a record: ", e);
-            e.printStackTrace();
-        } catch (RocksDBException e) {
-            log.error("failed to insert a record: ", e);
-            e.printStackTrace();
+            YamcsServer.getCrashHandler(ydb.getYamcsInstance()).handleCrash("Archive", "failed to insert a record in "+tableDefinition.getName()+": "+e);
         }
 
     }
@@ -90,7 +88,7 @@ public class RdbTableWriter extends TableWriter {
     private boolean insert(YRDB db, RdbPartition partition, Tuple t) throws RocksDBException {
         byte[] k = getPartitionKey(partition, tableDefinition.serializeKey(t));
         byte[] v = tableDefinition.serializeValue(t);
-
+        
         if(db.get(k)==null) {
             db.put(k, v);
             return true;
@@ -102,8 +100,8 @@ public class RdbTableWriter extends TableWriter {
     private boolean upsert(YRDB db, RdbPartition partition, Tuple t) throws RocksDBException {
         byte[] k = getPartitionKey(partition, tableDefinition.serializeKey(t));
         byte[] v = tableDefinition.serializeValue(t);
-
         if(db.get(k)==null) {
+           
             db.put(k, v);
             return true;
         } else {

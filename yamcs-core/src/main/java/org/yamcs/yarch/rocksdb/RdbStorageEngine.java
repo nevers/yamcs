@@ -51,7 +51,7 @@ public class RdbStorageEngine implements StorageEngine {
     boolean ignoreVersionIncompatibility = false;
     static RdbStorageEngine instance = new RdbStorageEngine();
 
-    private RdbStorageEngine() {
+    RdbStorageEngine() {
     }
 
     public void loadTablespaces(boolean readOnly) throws YarchException {
@@ -63,7 +63,7 @@ public class RdbStorageEngine implements StorageEngine {
             }
             for(File f:dirFiles) {
                 String fn=f.getName();
-                if(fn.endsWith(".tblsp")) {
+                if(fn.endsWith(".tbs")) {
                     try {
                         Tablespace tablespace = deserializeTablespace(f);
                         tablespace.loadDb(readOnly);
@@ -97,9 +97,9 @@ public class RdbStorageEngine implements StorageEngine {
 
 
             RDBFactory rdbFactory = RDBFactory.getInstance(tablespace.getName());
-            File f=new File(tablespace.getDataDir()+"/"+rdbp.dir);
+            File f=new File(tablespace.getCustomDataDir()+"/"+rdbp.dir);
             try {
-                YRDB db = rdbFactory.getRdb(f.getAbsolutePath(), false);
+                YRDB db = tablespace.getRdb(rdbp, false);
                 byte[] b = dbKey(rdbp.tbsIndex);
                 db.deleteAllWithPrefix(b);
             } catch (IOException e) {
@@ -181,7 +181,7 @@ public class RdbStorageEngine implements StorageEngine {
         int id = tablespaces.values().stream().mapToInt(t->t.getId()).max().orElse(0);
         Tablespace t = new Tablespace(tablespaceName, (byte)(id+1));
 
-        String fn = YarchDatabase.getDataDir()+"/"+tablespaceName+".tblspdef";
+        String fn = YarchDatabase.getDataDir()+"/"+tablespaceName+".tbs";
         try (FileOutputStream fos = new FileOutputStream(fn)) {
             Yaml yaml = new Yaml(new TablespaceRepresenter());
             Writer w = new BufferedWriter(new OutputStreamWriter(fos));
@@ -189,10 +189,13 @@ public class RdbStorageEngine implements StorageEngine {
             w.flush();
             fos.getFD().sync();
             w.close();
-        } catch (IOException e) {
+            t.loadDb(false);
+        } catch (IOException|RocksDBException e) {
             YamcsServer.getGlobalCrashHandler().handleCrash("RdbStorageEngine", "Cannot write tablespace definition to "+fn+" :"+e);
             log.error("Got exception when writing tablespapce definition to {} ",fn, e);
+            throw new RuntimeException(e);
         }
+        
         tablespaces.put(tablespaceName, t);
     }
 

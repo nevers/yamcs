@@ -37,7 +37,6 @@ public class RDBFactory implements Runnable {
     ScheduledThreadPoolExecutor scheduler;
     final String instance;
     public static FlushOptions flushOptions = new FlushOptions();
-    StringColumnFamilySerializer stringCfSerializer = new StringColumnFamilySerializer();
 
     public static synchronized RDBFactory getInstance(String instance) {
         RDBFactory rdbFactory = instances.get(instance); 

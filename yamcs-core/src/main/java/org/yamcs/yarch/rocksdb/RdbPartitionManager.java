@@ -1,18 +1,19 @@
 package org.yamcs.yarch.rocksdb;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.rocksdb.RocksDBException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.yamcs.yarch.HistogramInfo;
 import org.yamcs.yarch.Partition;
 import org.yamcs.yarch.PartitionManager;
 import org.yamcs.yarch.TimePartitionSchema.PartitionInfo;
+import org.yamcs.yarch.YarchDatabase;
 import org.yamcs.yarch.oldrocksdb.ColumnValueSerializer;
 import org.yamcs.yarch.YarchDatabaseInstance;
 import org.yamcs.yarch.rocksdb.protobuf.Tablespace.TablespaceRecord;
@@ -72,9 +73,18 @@ public class RdbPartitionManager extends PartitionManager {
             intv=new Interval(pinfo.partitionStart, pinfo.partitionEnd);
             intervals.put(pinfo.partitionStart, intv);
         }
-        Partition p = new RdbPartition(tbsIndex, pinfo.partitionStart, pinfo.partitionEnd, null, pinfo.dir+"/"+tableDefinition.getName());
+        Partition p = new RdbPartition(tbsIndex, pinfo.partitionStart, pinfo.partitionEnd, null, getPartAbsoluteDir(pinfo.dir));
         intv.addTimePartition(p);
-    }   
+    }
+    
+    private String getPartAbsoluteDir(String pinfodir) {
+        if(pinfodir==null) {
+            return null;
+        } else {
+            return tablespace.getDataDir()+"/"+pinfodir;
+        }
+       
+    }
 
     /** 
      * Called at startup when reading existing partitions from disk
@@ -86,7 +96,7 @@ public class RdbPartitionManager extends PartitionManager {
             intv = new Interval(pinfo.partitionStart, pinfo.partitionEnd);
             intervals.put(pinfo.partitionStart, intv);
         }
-        Partition p = new RdbPartition(tbsIndex, pinfo.partitionStart, pinfo.partitionEnd, value, pinfo.dir+"/"+tableDefinition.getName());
+        Partition p = new RdbPartition(tbsIndex, pinfo.partitionStart, pinfo.partitionEnd, value, getPartAbsoluteDir(pinfo.dir));
         intv.add(value, p);
     }	
 
@@ -94,7 +104,7 @@ public class RdbPartitionManager extends PartitionManager {
      * Called at startup when reading existing partitions from disk
      */
     private void addPartitionByValue(int tbsIndex, Object value) {
-        Partition p = new RdbPartition(tbsIndex, Long.MIN_VALUE, Long.MAX_VALUE, value,  tableDefinition.getName());             
+        Partition p = new RdbPartition(tbsIndex, Long.MIN_VALUE, Long.MAX_VALUE, value,  null);             
         pcache.add(value, p);
     }   
 
@@ -102,30 +112,24 @@ public class RdbPartitionManager extends PartitionManager {
      * Called at startup when reading existing partitions from disk
      */
     private void addPartitionByNone(int tbsIndex) {
-        Partition p = new RdbPartition(tbsIndex, Long.MIN_VALUE, Long.MAX_VALUE, null, tableDefinition.getName());             
+        Partition p = new RdbPartition(tbsIndex, Long.MIN_VALUE, Long.MAX_VALUE, null, null);             
         pcache.add(null, p);
     }   
 
     @Override
     protected Partition createPartitionByTime(PartitionInfo pinfo, Object value) throws IOException {
-        String tblName = tableDefinition.getName();
-        RDBFactory rdbFactory = RDBFactory.getInstance(ydb.getName());
-        File f= new File(tablespace.getDataDir()+"/"+pinfo.dir+"/");
-
-        if(!f.exists()) {
-            f.mkdirs();
-        }
-
-        YRDB rdb = rdbFactory.getRdb(f.getAbsolutePath(), true);
         byte[] bvalue = null;
         if(value!=null) {
             ColumnValueSerializer cvs = new ColumnValueSerializer(tableDefinition);
             bvalue = cvs.objectToByteArray(value);               
         }
-        TablespaceRecord tr = tablespace.createTablePartitionRecord(ydb.getName(), tblName, pinfo.dir, bvalue);
-
-        rdbFactory.dispose(rdb);
-        return new RdbPartition(tr.getTbsIndex(), pinfo.partitionStart, pinfo.partitionEnd, value, pinfo.dir);			
+        TablespaceRecord tr;
+        try {
+            tr = tablespace.createTablePartitionRecord(ydb.getName(), tableDefinition.getName(), pinfo.dir, bvalue);
+        } catch (RocksDBException e) {
+           throw new IOException(e);
+        }
+        return new  RdbPartition(tr.getTbsIndex(), pinfo.partitionStart, pinfo.partitionEnd, value, getPartAbsoluteDir(pinfo.dir));
     }
 
     @Override
@@ -136,8 +140,14 @@ public class RdbPartitionManager extends PartitionManager {
             ColumnValueSerializer cvs = new ColumnValueSerializer(tableDefinition);
             bvalue = cvs.objectToByteArray(value);
         }
-        TablespaceRecord tr = tablespace.createTablePartitionRecord(ydb.getName(), tblName, null, bvalue);
-        return new RdbPartition(tr.getTbsIndex(), Long.MIN_VALUE, Long.MAX_VALUE, value, tableDefinition.getName());			
+        TablespaceRecord tr;
+        try {
+            tr = tablespace.createTablePartitionRecord(ydb.getName(), tblName, null, bvalue);
+            return new RdbPartition(tr.getTbsIndex(), Long.MIN_VALUE, Long.MAX_VALUE, value, null);
+        } catch (RocksDBException e) {
+           throw new IOException(e);
+        }
+        			
     }
 
     @Override

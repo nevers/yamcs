@@ -15,7 +15,6 @@ import org.yamcs.yarch.Tuple;
 import org.yamcs.yarch.TupleDefinition;
 import org.yamcs.yarch.YarchTestCase;
 
-import com.google.common.io.Files;
 
 
 public class RdbEngineTest extends YarchTestCase {

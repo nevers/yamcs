@@ -114,4 +114,11 @@ public class ByteArrayUtils {
                 
         return a;
     }
+    
+    public static int decodeInt(byte[] a, int offset) {
+        return (a[offset] & 0xFF <<24)+
+               (a[offset+1] & 0xFF <<16)+
+               (a[offset+2] & 0xFF <<8)+
+               (a[offset+3] & 0xFF    );
+    }
 }

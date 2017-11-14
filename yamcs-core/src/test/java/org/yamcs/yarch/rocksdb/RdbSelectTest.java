@@ -11,10 +11,6 @@ import java.util.concurrent.TimeUnit;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameter;
-import org.junit.runners.Parameterized.Parameters;
 import org.yamcs.utils.TimeEncoding;
 import org.yamcs.yarch.ColumnDefinition;
 import org.yamcs.yarch.DataType;
@@ -30,24 +26,14 @@ import org.yamcs.yarch.TupleDefinition;
 import org.yamcs.yarch.YarchDatabase;
 import org.yamcs.yarch.YarchException;
 import org.yamcs.yarch.YarchTestCase;
-import org.yamcs.yarch.TableDefinition.PartitionStorage;
 import org.yamcs.yarch.streamsql.ParseException;
 import org.yamcs.yarch.streamsql.StreamSqlException;
 
-import com.google.common.io.Files;
-
-@RunWith(Parameterized.class)
 public class RdbSelectTest extends YarchTestCase {
     
     private TupleDefinition tdef;
     private TableWriter tw;
-    @Parameter
-    public PartitionStorage partitionStorage; 
-    @Parameters
-    public static Iterable<PartitionStorage> data() {
-        return Arrays.asList(PartitionStorage.values());
-    }
-    
+
     @Before
     public void before() throws StreamSqlException, YarchException {
         tdef=new TupleDefinition();
@@ -55,16 +41,12 @@ public class RdbSelectTest extends YarchTestCase {
         tdef.addColumn(new ColumnDefinition("packetid", DataType.INT));
         tdef.addColumn(new ColumnDefinition("col3", DataType.INT));
         TableDefinition tblDef = new TableDefinition("RdbSelectTest", tdef, Arrays.asList("gentime"));
-        tblDef.setPartitionStorage(partitionStorage);
 
-        String tmpdir=Files.createTempDir().getAbsolutePath();
-        tblDef.setDataDir(tmpdir);
-
-        PartitioningSpec pspec=PartitioningSpec.timeAndValueSpec("gentime", "packetid");
+        PartitioningSpec pspec = PartitioningSpec.timeAndValueSpec("gentime", "packetid");
         pspec.setValueColumnType(DataType.INT);
         tblDef.setPartitioningSpec(pspec);
         
-        tblDef.setStorageEngineName(YarchDatabase.OLD_RDB_ENGINE_NAME);
+        tblDef.setStorageEngineName(YarchDatabase.RDB_ENGINE_NAME);
         
         ydb.createTable(tblDef);
         
@@ -148,6 +130,9 @@ public class RdbSelectTest extends YarchTestCase {
         ydb.execute("create stream s3 as select * from RdbSelectTest where gentime<3000 order desc");        
         Stream s3 = ydb.getStream("s3");
         tuples = fetchTuples(s3);
+        
+        System.out.println("tuples: "+tuples);
+        
         assertEquals(2, tuples.size());
         assertEquals(2000L, tuples.get(0).getColumn("gentime"));
         assertEquals(1000L, tuples.get(1).getColumn("gentime"));
@@ -271,7 +256,7 @@ public class RdbSelectTest extends YarchTestCase {
             }
         });
         s.start();
-        semaphore.tryAcquire(5, TimeUnit.SECONDS);        
+        semaphore.tryAcquire(5000, TimeUnit.SECONDS);        
         return tuples;
     }
     

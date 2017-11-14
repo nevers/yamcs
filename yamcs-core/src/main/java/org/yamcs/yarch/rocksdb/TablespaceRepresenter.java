@@ -27,7 +27,9 @@ public class TablespaceRepresenter extends Representer {
         public Node representData(Object data) {
             Tablespace tblsp = (Tablespace) data;
             Map<String, Object> m=new HashMap<>();
-            m.put(K_DATA_DIR, tblsp.getDataDir());
+            if(tblsp.getCustomDataDir()!=null) {
+                m.put(K_DATA_DIR, tblsp.getCustomDataDir());
+            }
             m.put(K_ID, tblsp.getId());
             return representMapping(new Tag("Tablespace"), m, false);
         }

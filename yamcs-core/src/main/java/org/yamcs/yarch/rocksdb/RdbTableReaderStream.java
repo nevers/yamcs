@@ -8,13 +8,11 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.rocksdb.ReadOptions;
-import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import org.rocksdb.Snapshot;
 import org.yamcs.yarch.AbstractTableReaderStream;
 import org.yamcs.yarch.ColumnDefinition;
 import org.yamcs.yarch.ColumnSerializer;
-import org.yamcs.yarch.DataType;
 import org.yamcs.yarch.DbReaderStream;
 import org.yamcs.yarch.IndexFilter;
 import org.yamcs.yarch.Partition;
@@ -36,8 +34,6 @@ public class RdbTableReaderStream extends AbstractTableReaderStream implements R
     private long numRecordsRead = 0;
     private final Tablespace tablespace;
     
-    // size in bytes of value if partitioned by value
-    private final int partitionSize;
     
     protected RdbTableReaderStream(Tablespace tablespace, YarchDatabaseInstance ydb, TableDefinition tblDef, RdbPartitionManager partitionManager, boolean ascending, boolean follow) {
         super(ydb, tblDef, partitionManager, ascending, follow);
@@ -46,12 +42,6 @@ public class RdbTableReaderStream extends AbstractTableReaderStream implements R
         this.tableDefinition = tblDef;
         partitioningSpec = tblDef.getPartitioningSpec();
         this.partitionManager = partitionManager;
-        DataType dt = partitioningSpec.getValueColumnType();
-        if(dt!=null) {
-            this.partitionSize = ColumnValueSerializer.getSerializedSize(dt);
-        } else {
-           throw new IllegalStateException("InkeyTableReader is used only when the table is partitioned by value");
-        }
     }
 
 
@@ -103,7 +93,7 @@ public class RdbTableReaderStream extends AbstractTableReaderStream implements R
         YRDB rdb;
         try {
             rdb = tablespace.getRdb(p1, false);
-        } catch (RocksDBException e) {
+        } catch (IOException e) {
             log.error("Failed to open database", e);
             return false;
         }
@@ -135,7 +125,7 @@ public class RdbTableReaderStream extends AbstractTableReaderStream implements R
             } else if(itList.size()==1) {
                 iterator = itList.get(0);
             } else {
-                iterator = new MergingIterator(itList, ascending?new SuffixAscendingComparator(partitionSize):new SuffixDescendingComparator(partitionSize) );
+                iterator = new MergingIterator(itList, ascending?new SuffixAscendingComparator(4):new SuffixDescendingComparator(4) );
             }
             if(ascending) {
                 return runAscending(iterator, rangeEnd, strictEnd);
@@ -157,7 +147,7 @@ public class RdbTableReaderStream extends AbstractTableReaderStream implements R
     boolean runAscending(DbIterator iterator, byte[] rangeEnd, boolean strictEnd) {
         while(!quit && iterator.isValid()){
             byte[] dbKey = iterator.key();
-            byte[] key = Arrays.copyOfRange(dbKey, partitionSize, dbKey.length);
+            byte[] key = Arrays.copyOfRange(dbKey, 4, dbKey.length);
             if(!emitIfNotPastStop(key, iterator.value(), rangeEnd, strictEnd)) {
                 return true;
             }
@@ -169,7 +159,7 @@ public class RdbTableReaderStream extends AbstractTableReaderStream implements R
     boolean runDescending(DbIterator iterator, byte[] rangeStart, boolean strictStart) {
         while(!quit && iterator.isValid()){
             byte[] dbKey = iterator.key();
-            byte[] key = Arrays.copyOfRange(dbKey, partitionSize, dbKey.length);
+            byte[] key = Arrays.copyOfRange(dbKey, 4, dbKey.length);
             if(!emitIfNotPastStart(key, iterator.value(), rangeStart, strictStart)) {
                 return true;
             }
@@ -182,7 +172,8 @@ public class RdbTableReaderStream extends AbstractTableReaderStream implements R
     * TODO: check usage of RocksDB prefix iterators
     *  
     */
-   private DbIterator getPartitionIterator(RocksIterator it, int tbsIndex, boolean ascending, byte[] rangeStart, boolean strictStart, byte[] rangeEnd, boolean strictEnd) {
+   private DbIterator getPartitionIterator(RocksIterator it, int tbsIndex, boolean ascending, byte[] rangeStart, boolean strictStart,
+           byte[] rangeEnd, boolean strictEnd) {
        byte[] dbKeyStart;
        byte[] dbKeyEnd;
        boolean dbStrictStart, dbStrictEnd;
@@ -197,7 +188,7 @@ public class RdbTableReaderStream extends AbstractTableReaderStream implements R
        
        if(rangeEnd!=null) {
            dbKeyEnd = RdbStorageEngine.dbKey(tbsIndex, rangeEnd);
-           dbStrictEnd = false;
+           dbStrictEnd = strictEnd;
        } else {
            dbKeyEnd = RdbStorageEngine.dbKey(tbsIndex+1);
            dbStrictEnd = true;

@@ -30,7 +30,7 @@ public class TablespaceConstructor  extends Constructor {
             id = (Integer)m.get(K_ID);
             Tablespace tblspc = new Tablespace(tablespaceName, (byte)id);
             if(m.containsKey(K_DATA_DIR)) {
-                tblspc.setDataDir((String)m.get(K_DATA_DIR));
+                tblspc.setCustomDataDir((String)m.get(K_DATA_DIR));
             }
             return tblspc;
         }

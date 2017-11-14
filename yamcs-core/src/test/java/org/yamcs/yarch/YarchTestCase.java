@@ -45,9 +45,11 @@ public abstract class YarchTestCase {
 	instance = "yarchtest_"+this.getClass().getSimpleName();
 	context = new ExecutionContext(instance);
 
-	File ytdir=new File(dir+"/"+instance);               
+	File ytdir=new File(dir+"/"+instance);
+	File rdbdir = new File(dir+"/"+instance+".rdb");
 	
 	FileUtils.deleteRecursively(ytdir.toPath());
+	FileUtils.deleteRecursively(rdbdir.toPath());
 	
 	if(!ytdir.mkdirs()) throw new IOException("Cannot create directory "+ytdir);
 	

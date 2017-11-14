@@ -1,7 +1,10 @@
 package org.yamcs.yarch.rocksdb;
 
+import java.util.Arrays;
+
 import org.rocksdb.RocksIterator;
 import org.yamcs.utils.ByteArrayUtils;
+import org.yamcs.utils.StringConverter;
 
 /**
  * wrapper around a rocksdb iterator that only supports next() and is restricted to a range.
