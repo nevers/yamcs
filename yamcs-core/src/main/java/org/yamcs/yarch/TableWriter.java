@@ -1,8 +1,5 @@
 package org.yamcs.yarch;
 
-import java.io.FileNotFoundException;
-
-
 public abstract class TableWriter implements StreamSubscriber {         
     public enum InsertMode {
         INSERT, //insert rows whose key do not exist, ignore the others
@@ -15,10 +12,10 @@ public abstract class TableWriter implements StreamSubscriber {
     final protected InsertMode mode;
     final protected YarchDatabaseInstance ydb;
     
-    public TableWriter(YarchDatabaseInstance ydb, TableDefinition tableDefinition, InsertMode mode) throws FileNotFoundException {
-        this.tableDefinition=tableDefinition;
-        this.mode=mode;
-        this.ydb=ydb;
+    public TableWriter(YarchDatabaseInstance ydb, TableDefinition tableDefinition, InsertMode mode) {
+        this.tableDefinition = tableDefinition;
+        this.mode = mode;
+        this.ydb = ydb;
     }
     
     public TableDefinition getTableDefinition() {

@@ -43,7 +43,6 @@ public interface StorageEngine {
      * 
      * Creates a new table reader
      * @param tbl
-     * @return
      */
     public AbstractStream newTableReaderStream(YarchDatabaseInstance ydb, TableDefinition tbl, boolean ascending, boolean follow);
 

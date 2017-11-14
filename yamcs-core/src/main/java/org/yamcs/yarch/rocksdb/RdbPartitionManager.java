@@ -37,12 +37,12 @@ public class RdbPartitionManager extends PartitionManager {
 
     /** 
      * Called at startup to read existing partitions
+     * @throws IOException 
+     * @throws RocksDBException 
      */
-    public void readPartitions() {
-        Iterator<TablespaceRecord> it = tablespace.getTablePartitionIterator(ydb.getName(), tableDefinition.getName());
+    public void readPartitions() throws RocksDBException, IOException {
         ColumnValueSerializer cvs = new ColumnValueSerializer(tableDefinition);
-        while(it.hasNext()) {
-            TablespaceRecord tr = it.next();
+        for(TablespaceRecord tr: tablespace.getTablePartitions(ydb.getName(), tableDefinition.getName())) {
 
             if(tr.hasPartitionValue()) {
                 if(tr.hasPartitionDir()) {

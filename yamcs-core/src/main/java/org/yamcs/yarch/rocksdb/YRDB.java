@@ -129,15 +129,7 @@ public class YRDB {
         return cfh;
     }
     public synchronized ColumnFamilyHandle getColumnFamilyHandle(String cfname) {
-        ColumnFamilyHandle cfh = columnFamilies.get(new ByteArrayWrapper(cfname.getBytes(StandardCharsets.UTF_8)));
-        
-        //in yamcs 0.29.3 and older we used to create a column family for null values (i.e. when not partitioning on a value)
-        //starting with yamcs 0.29.4 we use the default column family for this
-        // the old tables are still supported because at startup the columnFamilies map will be populated with the null key
-        if((cfname==null) && (cfh==null)) { 
-            return db.getDefaultColumnFamily(); 
-        }
-        return cfh;
+       return columnFamilies.get(new ByteArrayWrapper(cfname.getBytes(StandardCharsets.UTF_8)));
     }
 
     public byte[] get(ColumnFamilyHandle cfh, byte[] key) throws RocksDBException {
@@ -284,12 +276,4 @@ public class YRDB {
             return l;
         } 
     }
-
-    public void deleteAllWithPrefix(byte[] b) {
-        // TODO Auto-generated method stub
-        
-    }
-
-   
-
 }

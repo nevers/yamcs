@@ -2,8 +2,9 @@ package org.yamcs.yarch.rocksdb;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Iterator;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicLong;
 
 import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.RocksDBException;
@@ -33,7 +34,7 @@ public class Tablespace {
     private static String CF_METADATA = "metadata";
     YRDB db;
     ColumnFamilyHandle cfMetadata;
-    private AtomicInteger maxTbsIndex = new AtomicInteger(0);
+    private AtomicLong maxTbsIndex = new AtomicLong();
     RDBFactory rdbFactory;
     
     public Tablespace(String name, byte id) {
@@ -42,7 +43,36 @@ public class Tablespace {
         rdbFactory = RDBFactory.getInstance(name);
     }
     
-    
+    public void loadDb(boolean readonly) throws IOException, RocksDBException {
+        String dbDir = getDataDir();
+        
+        File f = new File(dbDir);
+        if(f.exists()) {
+            log.info("Opening existing database {}", dbDir);
+            db = rdbFactory.getRdb(dbDir, readonly);
+            cfMetadata = db.getColumnFamilyHandle(CF_METADATA);
+            if(cfMetadata == null) {
+                throw new IOException("Existing tablespace database '"+dbDir+"' does not contain a column family named '"+CF_METADATA);
+            }
+            try (RocksIterator it = db.newIterator(cfMetadata)) {
+                it.seekToLast();
+                if(it.isValid()) {
+                    maxTbsIndex.set(Integer.toUnsignedLong(decodeInt(it.key(), 0)));
+                } else {
+                    initMaxTbsIndex();
+                }
+            }
+            
+        } else {
+            if(readonly) {
+                throw new IllegalStateException("Cannot create a new db when readonly is set to true");
+            }
+            initMaxTbsIndex();
+            log.info("Creating database at {}", dbDir);
+            db = RDBFactory.getInstance(name).getRdb(dbDir, readonly);
+            cfMetadata = db.createColumnFamily(CF_METADATA);
+        }
+    }
 
     public String getName() {
         return name;
@@ -57,19 +87,38 @@ public class Tablespace {
      * 
      * If instanceName = tablespace name, it returns also records which do not have an instanceName specified. 
      */
-    public Iterator<TablespaceRecord> getTablePartitionIterator(String instanceName, String tableName) {
-        return null;
+    public List<TablespaceRecord> getTablePartitions(String instanceName, String tableName) throws RocksDBException, IOException {
+        List<TablespaceRecord> r = new ArrayList<>();
+        //this is not very efficient 
+        try (RocksIterator it = db.newIterator(cfMetadata)) {
+            it.seekToFirst();
+            while(it.isValid()) {
+                TablespaceRecord.Builder tr = TablespaceRecord.newBuilder().mergeFrom(it.value());
+                if(tableName.equals(tr.getTableName())) {
+                    if(tr.hasInstanceName()) {
+                        if(instanceName.equals(tr.getInstanceName())) {
+                            r.add(tr.build());
+                        }
+                    } else {
+                        if(instanceName.equals(name)) {
+                    
+                        tr.setInstanceName(name);
+                        r.add(tr.build());
+                    }}
+                }
+                it.next();
+            }
+        }
+        return r;
     }
 
 
-
-    public void removeTable(String yamcsInstance, String name2) {
-        // TODO Auto-generated method stub
-        
-    }
-
-
-
+    /**
+     * Create a tablespace record for a table partition. 
+     * If the tablespace name is the same with yamcsInstance, do not store the name inside the record 
+     * (such that the instance/tablespace names can change without changing the metadata) 
+     * 
+     */
     public TablespaceRecord createTablePartitionRecord(String yamcsInstance, String tblName, String dir, byte[] bvalue) throws RocksDBException {
         TablespaceRecord.Builder trb = TablespaceRecord.newBuilder().setType(Type.TABLE_PARTITION)
                 .setTableName(tblName);
@@ -83,31 +132,22 @@ public class Tablespace {
         if(!yamcsInstance.equals(name)) {
             trb.setInstanceName(yamcsInstance);
         }
-        int tbsIndex = maxTbsIndex.incrementAndGet();
+        int tbsIndex = (int)maxTbsIndex.incrementAndGet();
         trb.setTbsIndex(tbsIndex);
         
         TablespaceRecord tr = trb.build();
+        log.debug("Adding table partition {}", tr);
+        
         db.put(cfMetadata, getKey(tbsIndex), tr.toByteArray());
         return tr;
     }
 
-    //the key to use in the metadata table. We currently use 5 bytes, the first is 0xFF and the next 4 are tbsIndex. 
-    // in the future we may use a byte different than 0xFF to store the same data sorted differently
-    private byte[] getKey(int tbsIndex) {
-        byte[] key = new byte[5];
-        key[0] = (byte) 0xFF;
-        encodeInt(tbsIndex, key, 1);
-        return key;
-    }
-
-    private int getTbsIndex(byte[] key) {
-        return decodeInt(key, 1);
-    }
-    
     public String getCustomDataDir() {
         return customDataDir;
     }
-
+    private void initMaxTbsIndex() {
+        maxTbsIndex.set(id<<24);
+    }
     
     
     public YRDB getRdb(RdbPartition partition, boolean readOnly)  throws IOException {
@@ -134,33 +174,7 @@ public class Tablespace {
         this.customDataDir = dataDir;
     }
 
-    public void loadDb(boolean readonly) throws IOException, RocksDBException {
-        String dbDir = getDataDir();
-        
-        File f = new File(dbDir);
-        if(f.exists()) {
-            log.info("Opening existing database {}", dbDir);
-            db = rdbFactory.getRdb(dbDir, readonly);
-            cfMetadata = db.getColumnFamilyHandle(CF_METADATA);
-            if(cfMetadata == null) {
-                throw new IOException("Existing tablespace database '"+dbDir+"' does not contain a column family named '"+CF_METADATA);
-            }
-            try (RocksIterator it = db.newIterator(cfMetadata)) {
-                it.seekToLast();
-                if(it.isValid()) {
-                    maxTbsIndex.set(decodeInt(it.key(), 0));
-                } 
-            }
-            
-        } else {
-            if(readonly) {
-                throw new IllegalStateException("Cannot create a new db when readonly is set to true");
-            }
-            log.info("Creating database at {}", dbDir);
-            db = RDBFactory.getInstance(name).getRdb(dbDir, readonly);
-            cfMetadata = db.createColumnFamily(CF_METADATA);
-        }
-    }
+ 
     
     String getDataDir() {
         String dir = customDataDir;
@@ -169,5 +183,31 @@ public class Tablespace {
         }
         return dir;
     }
+
+
+
+    public void removeTbsIndex(int tbsIndex) throws RocksDBException {
+        db.getDb().delete(getKey(tbsIndex));
+    }
+
     
+    /**
+     * the key to use in the metadata table. We currently use 5 bytes, the first is 0xFF and the next 4 are tbsIndex. 
+     * in the future we may use a byte different than 0xFF to store the same data sorted differently
+     *
+     * the reason for using 0xFF as the first byte is to get the highest tbsIndex by reading the last record.
+     */ 
+    private byte[] getKey(int tbsIndex) {
+        byte[] key = new byte[5];
+        key[0] = (byte) 0xFF;
+        encodeInt(tbsIndex, key, 1);
+        return key;
+    }
+
+    private int getTbsIndex(byte[] key) {
+        return decodeInt(key, 1);
+    }
+    public void close() {
+        rdbFactory.close(db);
+    }
 }

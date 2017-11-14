@@ -9,7 +9,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.yamcs.YamcsServer;
 import org.yamcs.utils.ByteArrayUtils;
-import org.yamcs.utils.StringConverter;
 import org.yamcs.utils.TimeEncoding;
 import org.yamcs.yarch.ColumnDefinition;
 import org.yamcs.yarch.ColumnSerializer;
@@ -39,7 +38,8 @@ public class RdbTableWriter extends TableWriter {
     static final byte[] zerobytes = new byte[0]; 
     Tablespace tablespace;
     
-    public RdbTableWriter(Tablespace tablespace, YarchDatabaseInstance ydb, TableDefinition tableDefinition, InsertMode mode, RdbPartitionManager pm) throws IOException {
+    public RdbTableWriter(Tablespace tablespace, YarchDatabaseInstance ydb, TableDefinition tableDefinition, 
+            InsertMode mode, RdbPartitionManager pm) {
         super(ydb, tableDefinition, mode);
         this.partitioningSpec = tableDefinition.getPartitioningSpec();
         this.partitionManager = pm;

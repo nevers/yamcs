@@ -100,7 +100,9 @@ public class TupleSourceExpression {
             stream=streamExpression.execute(c);
         } else if (objectName!=null) {
             YarchDatabaseInstance ydb = YarchDatabase.getInstance(c.getDbName());
-            if(!ascending) follow = false;
+            if(!ascending) {
+                follow = false;
+            }
             TableDefinition tbl=ydb.getTable(objectName);
             if(tbl!=null) {
                 if(histoColumn==null) {
@@ -119,7 +121,9 @@ public class TupleSourceExpression {
                 }
             } else {
                 stream=ydb.getStream(objectName);
-                if(stream==null) throw new ResourceNotFoundException(objectName);
+                if(stream==null) {
+                    throw new ResourceNotFoundException(objectName);
+                }
             }
         } else {
             throw new NoneSpecifiedException();

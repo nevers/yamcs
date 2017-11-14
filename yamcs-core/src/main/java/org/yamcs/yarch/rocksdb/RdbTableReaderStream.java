@@ -35,7 +35,8 @@ public class RdbTableReaderStream extends AbstractTableReaderStream implements R
     private final Tablespace tablespace;
     
     
-    protected RdbTableReaderStream(Tablespace tablespace, YarchDatabaseInstance ydb, TableDefinition tblDef, RdbPartitionManager partitionManager, boolean ascending, boolean follow) {
+    protected RdbTableReaderStream(Tablespace tablespace, YarchDatabaseInstance ydb, TableDefinition tblDef, RdbPartitionManager partitionManager,
+            boolean ascending, boolean follow) {
         super(ydb, tblDef, partitionManager, ascending, follow);
         
         this.tablespace = tablespace;
@@ -70,11 +71,11 @@ public class RdbTableReaderStream extends AbstractTableReaderStream implements R
             ColumnSerializer cs = tableDefinition.getColumnSerializer(cd.getName());
             if(range.keyStart!=null) {
                 strictStart = range.strictStart;
-                rangeStart=cs.toByteArray(range.keyStart);
+                rangeStart = cs.toByteArray(range.keyStart);
             }
             if(range.keyEnd!=null) {
-                strictEnd=range.strictEnd;
-                rangeEnd=cs.toByteArray(range.keyEnd);
+                strictEnd = range.strictEnd;
+                rangeEnd = cs.toByteArray(range.keyEnd);
             }
         }
             return runValuePartitions(partitions, rangeStart, strictStart, rangeEnd, strictEnd);
