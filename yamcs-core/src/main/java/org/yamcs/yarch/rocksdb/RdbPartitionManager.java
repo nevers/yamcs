@@ -1,10 +1,6 @@
 package org.yamcs.yarch.rocksdb;
 
 import java.io.IOException;
-import java.util.Collections;
-import java.util.Iterator;
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 import org.rocksdb.RocksDBException;
 import org.slf4j.Logger;
@@ -13,12 +9,10 @@ import org.yamcs.yarch.HistogramInfo;
 import org.yamcs.yarch.Partition;
 import org.yamcs.yarch.PartitionManager;
 import org.yamcs.yarch.TimePartitionSchema.PartitionInfo;
-import org.yamcs.yarch.YarchDatabase;
 import org.yamcs.yarch.oldrocksdb.ColumnValueSerializer;
 import org.yamcs.yarch.YarchDatabaseInstance;
 import org.yamcs.yarch.rocksdb.protobuf.Tablespace.TablespaceRecord;
 import org.yamcs.yarch.TableDefinition;
-import org.yamcs.utils.TimeEncoding;
 
 /**
  * Handles partitions for one table. All partitions are stored as records in the tablespace.
@@ -73,19 +67,10 @@ public class RdbPartitionManager extends PartitionManager {
             intv=new Interval(pinfo.partitionStart, pinfo.partitionEnd);
             intervals.put(pinfo.partitionStart, intv);
         }
-        Partition p = new RdbPartition(tbsIndex, pinfo.partitionStart, pinfo.partitionEnd, null, getPartAbsoluteDir(pinfo.dir));
+        Partition p = new RdbPartition(tbsIndex, pinfo.partitionStart, pinfo.partitionEnd, null, pinfo.dir);
         intv.addTimePartition(p);
     }
     
-    private String getPartAbsoluteDir(String pinfodir) {
-        if(pinfodir==null) {
-            return null;
-        } else {
-            return tablespace.getDataDir()+"/"+pinfodir;
-        }
-       
-    }
-
     /** 
      * Called at startup when reading existing partitions from disk
      */
@@ -96,7 +81,7 @@ public class RdbPartitionManager extends PartitionManager {
             intv = new Interval(pinfo.partitionStart, pinfo.partitionEnd);
             intervals.put(pinfo.partitionStart, intv);
         }
-        Partition p = new RdbPartition(tbsIndex, pinfo.partitionStart, pinfo.partitionEnd, value, getPartAbsoluteDir(pinfo.dir));
+        Partition p = new RdbPartition(tbsIndex, pinfo.partitionStart, pinfo.partitionEnd, value, pinfo.dir);
         intv.add(value, p);
     }	
 
@@ -129,7 +114,7 @@ public class RdbPartitionManager extends PartitionManager {
         } catch (RocksDBException e) {
            throw new IOException(e);
         }
-        return new  RdbPartition(tr.getTbsIndex(), pinfo.partitionStart, pinfo.partitionEnd, value, getPartAbsoluteDir(pinfo.dir));
+        return new  RdbPartition(tr.getTbsIndex(), pinfo.partitionStart, pinfo.partitionEnd, value, pinfo.dir);
     }
 
     @Override
@@ -152,28 +137,21 @@ public class RdbPartitionManager extends PartitionManager {
 
     @Override
     protected HistogramInfo createHistogramByTime(PartitionInfo pinfo, String columnName) throws IOException {
-        return null;
+        try {
+            TablespaceRecord tr = tablespace.createHistogramRecord(ydb.getName(), tableDefinition.getName(), columnName, pinfo.dir);
+            return new RdbHistogramInfo(tr.getTbsIndex(), columnName, pinfo.dir);                       
+        } catch (RocksDBException e) {
+           throw new IOException(e);
+        }       
     }
 
     @Override
     protected HistogramInfo createHistogram(String columnName)  throws IOException {
-        return null;
-    }
-}
-
-class Interval {
-    long start;
-    long end;
-    String dir;
-    Set<Object> values=Collections.newSetFromMap(new ConcurrentHashMap<Object, Boolean>());
-
-    public Interval(long start, long end) {
-        this.start=start;
-        this.end=end;
-    }
-
-    @Override
-    public String toString() {
-        return "["+TimeEncoding.toString(start)+" - "+TimeEncoding.toString(end)+"] dir:"+dir+" values: "+values;
+        try {
+            TablespaceRecord tr = tablespace.createHistogramRecord(ydb.getName(), tableDefinition.getName(), columnName, null);
+            return new RdbHistogramInfo(tr.getTbsIndex(), columnName, null);                       
+        } catch (RocksDBException e) {
+           throw new IOException(e);
+        }      
     }
 }

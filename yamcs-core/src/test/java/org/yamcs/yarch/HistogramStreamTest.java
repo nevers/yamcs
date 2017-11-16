@@ -28,14 +28,10 @@ public class HistogramStreamTest extends YarchTestCase {
     int n = 1200;
     int m = 3;
     @Parameter
-    public String partitionStorage; 
-    @Parameters
-    public static Iterable<String> data() {
-        return Arrays.asList("IN_KEY", "COLUMN_FAMILY");
-    }
-    
+    public String seconf; 
+
     private void populate(String tblName) throws Exception {
-        String query="create table "+tblName+"(gentime timestamp, seqNum int, name string, primary key(gentime, seqNum)) histogram(name) partition by time(gentime) table_format=compressed partition_storage="+partitionStorage;
+        String query="create table "+tblName+"(gentime timestamp, seqNum int, name string, primary key(gentime, seqNum)) histogram(name) partition by time(gentime) table_format=compressed "+seconf;
         ydb.execute(query);
         
         execute("create stream "+tblName+"_in(gentime timestamp, seqNum int, name string)");

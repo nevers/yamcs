@@ -6,6 +6,9 @@ import java.util.Map;
 import org.yamcs.yarch.Partition;
 
 public class RdbPartition extends Partition {
+    /**
+     * partition directory relative to the {@link Tablespace#getDataDir()}
+     */
     final String dir;
     final int tbsIndex;
     

@@ -2,25 +2,14 @@ package org.yamcs.yarch.rocksdb;
 
 import static org.junit.Assert.assertEquals;
 
-import java.lang.management.ManagementFactory;
-import java.lang.management.OperatingSystemMXBean;
 
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.Ignore;
 import org.junit.Test;
-import org.rocksdb.ColumnFamilyDescriptor;
-import org.rocksdb.ColumnFamilyHandle;
-import org.rocksdb.ColumnFamilyOptions;
-import org.rocksdb.DBOptions;
-import org.rocksdb.Options;
-import org.rocksdb.RocksDB;
-import org.rocksdb.RocksIterator;
 import org.yamcs.utils.TimeEncoding;
 import org.yamcs.yarch.ColumnDefinition;
 import org.yamcs.yarch.DataType;
@@ -122,7 +111,7 @@ public class RdbPerformanceTest extends YarchTestCase {
         System.out.println("********************** "+tblname+" timeFirst:" +timeFirst+" **********************");
         
         //populate(tblDef, 365*24*60*60);
-        populate(tbldef, 10*24*60*60, timeFirst);
+        populate(tbldef, 90*24*60*60, timeFirst);
        // Thread.sleep(1000);
         
         // populate(tblDef, 100);
@@ -132,24 +121,28 @@ public class RdbPerformanceTest extends YarchTestCase {
         read(tblname, "packet9");
         read(tblname, "packet14");
         read(tblname, "packet19");
+        System.out.println("sleeping 60 seconds to allow rocksdb consolidation");
+        Thread.currentThread().sleep(60000);
         read(tblname, null);
+        
     }
 
     @Test
-    public void testPartition() throws Exception {
+    public void testPname() throws Exception {
+        String tblname = "Pname";
         tdef = new TupleDefinition();
         tdef.addColumn(new ColumnDefinition("gentime", DataType.TIMESTAMP));
         tdef.addColumn(new ColumnDefinition("pname", DataType.ENUM));
         tdef.addColumn(new ColumnDefinition("packet", DataType.BINARY));
-        TableDefinition tblDef = new TableDefinition("part_YYYY_MM_pname", tdef, Arrays.asList("gentime"));
+        TableDefinition tblDef = new TableDefinition(tblname, tdef, Arrays.asList("gentime"));
        
-        tblDef.setDataDir(dir);
+        tblDef.setTablespaceName(tblname);
 
-        PartitioningSpec pspec = PartitioningSpec.timeAndValueSpec("gentime", "pname");
+        PartitioningSpec pspec = PartitioningSpec.valueSpec("pname");
         pspec.setValueColumnType(DataType.ENUM);
         tblDef.setPartitioningSpec(pspec);
 
-        tblDef.setStorageEngineName(YarchDatabase.OLD_RDB_ENGINE_NAME);
+        tblDef.setStorageEngineName(YarchDatabase.RDB_ENGINE_NAME);
 
         ydb.createTable(tblDef);
         populateAndRead(tblDef, true);
@@ -165,13 +158,13 @@ public class RdbPerformanceTest extends YarchTestCase {
         tdef.addColumn(new ColumnDefinition("packet", DataType.BINARY));
         TableDefinition tblDef = new TableDefinition(tblname, tdef, Arrays.asList("gentime"));
 
-        tblDef.setDataDir(dir);
+        tblDef.setTablespaceName(tblname);
 
         PartitioningSpec pspec = PartitioningSpec.timeSpec("gentime");
         pspec.setTimePartitioningSchema("YYYY");
         tblDef.setPartitioningSpec(pspec);
 
-        tblDef.setStorageEngineName(YarchDatabase.OLD_RDB_ENGINE_NAME);
+        tblDef.setStorageEngineName(YarchDatabase.RDB_ENGINE_NAME);
 
         ydb.createTable(tblDef);
 
@@ -180,71 +173,64 @@ public class RdbPerformanceTest extends YarchTestCase {
 
     
     @Test
-    public void testNonePartition() throws Exception {
-        String tblname = "NonePartition";
+    public void testPnameYYYY() throws Exception {
+        String tblname = "Pname_YYYY";
         tdef = new TupleDefinition();
         
-        tdef.addColumn(new ColumnDefinition("pname", DataType.ENUM));        
         tdef.addColumn(new ColumnDefinition("gentime", DataType.TIMESTAMP));
+        tdef.addColumn(new ColumnDefinition("pname", DataType.ENUM)); 
         tdef.addColumn(new ColumnDefinition("packet", DataType.BINARY));
-        TableDefinition tblDef = new TableDefinition(tblname, tdef, Arrays.asList("pname", "gentime"));
+        TableDefinition tblDef = new TableDefinition(tblname, tdef, Arrays.asList( "gentime", "pname"));
 
-        tblDef.setDataDir(dir);
+        tblDef.setTablespaceName(tblname);
 
-        PartitioningSpec pspec = PartitioningSpec.noneSpec();
+        PartitioningSpec pspec = PartitioningSpec.timeAndValueSpec("gentime", "pname");
+        pspec.setTimePartitioningSchema("YYYY");
         tblDef.setPartitioningSpec(pspec);
 
-        tblDef.setStorageEngineName(YarchDatabase.OLD_RDB_ENGINE_NAME);
+        tblDef.setStorageEngineName(YarchDatabase.RDB_ENGINE_NAME);
 
         ydb.createTable(tblDef);
         
-        populateAndRead(tblDef, false);
+        populateAndRead(tblDef, true);
     }
-
-    
-    @SuppressWarnings("restriction")
-    @Test
-    public void testNumOpenFiles() throws Exception {
-        String dir = "/storage/ptest/NonePartition";
-
-        List<byte[]> cfl = RocksDB.listColumnFamilies(new Options(), dir);
-        
-        List<ColumnFamilyDescriptor> cfdList = new ArrayList<ColumnFamilyDescriptor>(cfl.size());
-        ColumnFamilyOptions cfoptions = new ColumnFamilyOptions();
-        cfoptions.setTargetFileSizeMultiplier(10);
-        
-        DBOptions dboptions = new DBOptions();
-        dboptions.setMaxOpenFiles(22);
-        OperatingSystemMXBean os = ManagementFactory.getOperatingSystemMXBean();
-        for(byte[] b: cfl) {
-            cfdList.add(new ColumnFamilyDescriptor(b, cfoptions));                                 
-        }
-        
-        List<ColumnFamilyHandle> cfhList = new ArrayList<ColumnFamilyHandle>(cfl.size());
-        RocksDB db = RocksDB.open(dboptions, dir, cfdList, cfhList);
-        RocksIterator[] its = new RocksIterator[30];
-        int n = 100000;
-        int c=0;
-        for (int k=0;k<its.length; k++) {
-         ///   System.out.println("opening iterator "+k);
-            its[k] = db.newIterator();
-            if(k==0) {
-                its[k].seekToFirst();
-            } else {
-                its[k].seek(its[k-1].key());
-            }
-            while(c<k*n) {
-                c++;
-                its[k].next();
-            }
-        }
-       
-        
-        for (int k=0;k<its.length; k++) {
-            its[k].dispose();
-        }
-        db.close();
-    }
-
-
 }
+/*
+ * Results
+ Intel(R) Core(TM) i7-4610M CPU @ 3.00GHz
+ Samsung SSD 850 EVO 500GB
+ 
+ 
+ * 
+ ********************** NoPname_YYYY timeFirst:true **********************
+total numPackets: 3814120
+time to populate 26 seconds
+time to read 3814120 tuples with null: 8196 miliseconds
+time to read 864000 tuples with packet1: 8440 miliseconds
+time to read 86400 tuples with packet5: 8500 miliseconds
+time to read 2880 tuples with packet9: 8072 miliseconds
+time to read 240 tuples with packet14: 8146 miliseconds
+time to read 10 tuples with packet19: 8110 miliseconds
+time to read 3814120 tuples with null: 7840 miliseconds
+********************** Pname timeFirst:true **********************
+total numPackets: 3814120
+time to populate 79 seconds
+time to read 3814120 tuples with null: 17420 miliseconds
+time to read 864000 tuples with packet1: 1855 miliseconds
+time to read 86400 tuples with packet5: 183 miliseconds
+time to read 2880 tuples with packet9: 6 miliseconds
+time to read 240 tuples with packet14: 1 miliseconds
+time to read 10 tuples with packet19: 2 miliseconds
+time to read 3814120 tuples with null: 8740 miliseconds
+********************** Pname_YYYY timeFirst:true **********************
+total numPackets: 3814120
+time to populate 90 seconds
+time to read 3814120 tuples with null: 17903 miliseconds
+time to read 864000 tuples with packet1: 3624 miliseconds
+time to read 86400 tuples with packet5: 340 miliseconds
+time to read 2880 tuples with packet9: 118 miliseconds
+time to read 240 tuples with packet14: 2 miliseconds
+time to read 10 tuples with packet19: 1 miliseconds
+time to read 3814120 tuples with null: 16988 miliseconds
+ 
+ */

@@ -31,11 +31,10 @@ import org.yamcs.yarch.YarchDatabaseInstance;
 import org.yamcs.yarch.YarchException;
 import org.yamcs.yarch.YarchTestCase;
 import org.yamcs.yarch.TableWriter.InsertMode;
-import org.yamcs.yarch.rocksdb.RdbStorageEngine;
 import org.yamcs.yarch.streamsql.StreamSqlException;
 
 import com.google.common.io.Files;
-@Ignore
+//@Ignore
 public class RdbSelectPerfTest extends YarchTestCase {
     private TupleDefinition tdef;
     private TableWriter tw;

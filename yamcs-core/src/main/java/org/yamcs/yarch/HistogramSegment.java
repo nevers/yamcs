@@ -6,7 +6,7 @@ import java.util.ArrayList;
 import org.yamcs.utils.ByteArrayUtils;
 
 /* 
- * keeps all the records in a {@link groupFactor} millisec interval
+ * keeps all the records in a {@value #GROUPING_FACTOR} millisec interval
  * 
  * */
 public class HistogramSegment {

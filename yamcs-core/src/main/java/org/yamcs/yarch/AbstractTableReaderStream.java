@@ -46,11 +46,6 @@ public abstract class AbstractTableReaderStream extends AbstractStream implement
     }
 
 
-    @Override 
-    public void start() {
-        (new Thread(this, "TcTableReader["+getName()+"]")).start();
-    }
-
     @Override
     public void run() {
         log.debug("starting a table stream from table {} with rangeIndexFilter {} \n partitionFilter: {}",
@@ -85,11 +80,12 @@ public abstract class AbstractTableReaderStream extends AbstractStream implement
             while((!quit) && partitionIterator.hasNext()) {
                 List<Partition> partitions=partitionIterator.next();
                 boolean endReached = runPartitions(partitions, rangeIndexFilter);
-                if(endReached) break;
+                if(endReached) {
+                    break;
+                }
             }            
         } catch (Exception e) {
             log.error("got exception ", e);
-            e.printStackTrace();
         } finally {
             close();
         }

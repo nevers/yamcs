@@ -48,7 +48,7 @@ public class RdbTableReaderStream extends AbstractTableReaderStream implements R
 
     @Override 
     public void start() {
-        (new Thread(this, "InkeyRdbTableReader["+getName()+"]")).start();
+        (new Thread(this, "RdbTableReaderStream["+getName()+"]")).start();
     }
 
 
@@ -61,6 +61,7 @@ public class RdbTableReaderStream extends AbstractTableReaderStream implements R
      */
     @Override
     protected boolean runPartitions(List<Partition> partitions, IndexFilter range) throws IOException {
+       
         byte[] rangeStart=null;
         boolean strictStart=false;
         byte[] rangeEnd=null;
@@ -78,7 +79,8 @@ public class RdbTableReaderStream extends AbstractTableReaderStream implements R
                 rangeEnd = cs.toByteArray(range.keyEnd);
             }
         }
-            return runValuePartitions(partitions, rangeStart, strictStart, rangeEnd, strictEnd);
+        
+        return runValuePartitions(partitions, rangeStart, strictStart, rangeEnd, strictEnd);
     }
 
     /*
@@ -86,14 +88,13 @@ public class RdbTableReaderStream extends AbstractTableReaderStream implements R
      */
     private boolean runValuePartitions(List<Partition> partitions, byte[] rangeStart, boolean strictStart, byte[] rangeEnd, boolean strictEnd) {
         DbIterator iterator = null;
-      
-        RDBFactory rdbf = RDBFactory.getInstance(ydb.getName());
+        
         RdbPartition p1 = (RdbPartition) partitions.get(0);
         String dbDir = p1.dir;
         log.debug("opening database {}", dbDir);
         YRDB rdb;
         try {
-            rdb = tablespace.getRdb(p1, false);
+            rdb = tablespace.getRdb(p1.dir, false);
         } catch (IOException e) {
             log.error("Failed to open database", e);
             return false;
@@ -141,7 +142,7 @@ public class RdbTableReaderStream extends AbstractTableReaderStream implements R
                 snapshot.close();
             }
             readOptions.close();
-            rdbf.dispose(rdb);
+            tablespace.dispose(rdb);
         }
     }
     

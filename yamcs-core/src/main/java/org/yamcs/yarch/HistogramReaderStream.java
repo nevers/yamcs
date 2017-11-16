@@ -5,7 +5,7 @@ import java.util.Iterator;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.yamcs.TimeInterval;
+import org.yamcs.utils.TimeInterval;
 import org.yamcs.yarch.streamsql.ColumnExpression;
 import org.yamcs.yarch.streamsql.RelOp;
 import org.yamcs.yarch.streamsql.StreamSqlException;

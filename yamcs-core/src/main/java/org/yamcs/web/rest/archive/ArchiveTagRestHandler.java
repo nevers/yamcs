@@ -2,7 +2,6 @@ package org.yamcs.web.rest.archive;
 
 import java.io.IOException;
 
-import org.yamcs.TimeInterval;
 import org.yamcs.YamcsException;
 import org.yamcs.archive.TagDb;
 import org.yamcs.archive.TagReceiver;
@@ -12,6 +11,7 @@ import org.yamcs.protobuf.Rest.ListTagsResponse;
 import org.yamcs.protobuf.SchemaRest;
 import org.yamcs.protobuf.SchemaYamcs;
 import org.yamcs.protobuf.Yamcs.ArchiveTag;
+import org.yamcs.utils.TimeInterval;
 import org.yamcs.web.BadRequestException;
 import org.yamcs.web.HttpException;
 import org.yamcs.web.InternalServerErrorException;

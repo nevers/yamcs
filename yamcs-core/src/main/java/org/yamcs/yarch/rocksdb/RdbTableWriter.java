@@ -50,7 +50,7 @@ public class RdbTableWriter extends TableWriter {
     public void onTuple(Stream stream, Tuple t) {
         try {
             RdbPartition partition = getDbPartition(t);
-            YRDB db = tablespace.getRdb(partition, false);
+            YRDB db = tablespace.getRdb(partition.dir, false);
 
             boolean inserted=false;
             boolean updated=false;

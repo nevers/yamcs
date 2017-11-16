@@ -2,8 +2,8 @@ package org.yamcs.yarch;
 
 import java.util.Iterator;
 
-import org.yamcs.TimeInterval;
 import org.yamcs.archive.TagDb;
+import org.yamcs.utils.TimeInterval;
 import org.yamcs.yarch.TableWriter.InsertMode;
 
 public interface StorageEngine {

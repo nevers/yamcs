@@ -3,6 +3,7 @@ package org.yamcs.yarch;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.Semaphore;
@@ -13,6 +14,7 @@ import org.yamcs.yarch.YarchDatabaseInstance;
 import org.yamcs.yarch.rocksdb.RdbStorageEngine;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.runners.Parameterized.Parameters;
 import org.yamcs.yarch.streamsql.ExecutionContext;
 import org.yamcs.yarch.streamsql.ParseException;
 import org.yamcs.yarch.streamsql.StreamSqlException;
@@ -36,6 +38,7 @@ public abstract class YarchTestCase {
 	} else {
 	    littleEndian=false;
 	}
+	java.util.logging.Logger.getLogger("org.yamcs").setLevel(java.util.logging.Level.ALL);
     }
 
     @Before
@@ -44,7 +47,16 @@ public abstract class YarchTestCase {
 	String dir = config.getString("dataDir");
 	instance = "yarchtest_"+this.getClass().getSimpleName();
 	context = new ExecutionContext(instance);
-
+	
+	if(YarchDatabase.hasInstance(instance)) {      
+            YarchDatabase.removeInstance(instance);
+            RdbStorageEngine rse = RdbStorageEngine.getInstance();
+            if(rse.getTablespacece(instance)!=null) {
+                rse.dropTablespace(instance);
+            }
+        }
+        
+	  
 	File ytdir=new File(dir+"/"+instance);
 	File rdbdir = new File(dir+"/"+instance+".rdb");
 	
@@ -53,11 +65,6 @@ public abstract class YarchTestCase {
 	
 	if(!ytdir.mkdirs()) throw new IOException("Cannot create directory "+ytdir);
 	
-	if(YarchDatabase.hasInstance(instance)) {	
-	    YarchDatabaseInstance ydb = YarchDatabase.getInstance(instance);
-	   // RdbStorageEngine.removeInstance(ydb);
-	    YarchDatabase.removeInstance(instance);		
-	}
 	
 	ydb = YarchDatabase.getInstance(instance);
     }
@@ -95,5 +102,30 @@ public abstract class YarchTestCase {
 	s.start();
 	semaphore.acquire();
 	return tuples;
+    }
+    
+    @Parameters
+    public static List<String> getStorageEngineConfigs() {
+        return Arrays.asList("engine rocksdb partition_storage=IN_KEY",
+                "engine rocksdb partition_storage=COLUMN_FAMILY",
+                "engine rocksdb2");
+    }
+            
+    public static List<StorageEngineConfig> getTestConfigs() {
+        List<StorageEngineConfig> al = new ArrayList<>();
+        al.add(new StorageEngineConfig("rocksdb", "IN_KEY"));
+        al.add(new StorageEngineConfig("rocksdb2", "IN_KEY"));
+        return al;
+    }
+    
+    
+    static class StorageEngineConfig {
+        String storageEngine;
+        String partitionStorage;
+        public StorageEngineConfig(String storageEngine, String partitionStorage) {
+            this.storageEngine = storageEngine;
+            this.partitionStorage = partitionStorage;
+        }
+
     }
 }

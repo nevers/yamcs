@@ -2,10 +2,10 @@ package org.yamcs.ui;
 
 import java.util.concurrent.Future;
 
-import org.yamcs.TimeInterval;
 import org.yamcs.ui.archivebrowser.ArchiveIndexListener;
 import org.yamcs.ui.archivebrowser.ArchiveIndexReceiver;
 import org.yamcs.utils.TimeEncoding;
+import org.yamcs.utils.TimeInterval;
 import org.yamcs.api.YamcsApiException;
 import org.yamcs.api.rest.BulkRestDataReceiver;
 import org.yamcs.api.rest.RestClient;

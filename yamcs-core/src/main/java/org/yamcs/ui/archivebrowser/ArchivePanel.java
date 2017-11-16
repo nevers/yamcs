@@ -1,10 +1,10 @@
 package org.yamcs.ui.archivebrowser;
 
-import org.yamcs.TimeInterval;
 import org.yamcs.protobuf.Yamcs.ArchiveRecord;
 import org.yamcs.protobuf.Yamcs.ArchiveTag;
 import org.yamcs.protobuf.Yamcs.IndexResult;
 import org.yamcs.ui.UiColors;
+import org.yamcs.utils.TimeInterval;
 
 import javax.swing.*;
 import javax.swing.border.Border;

@@ -158,13 +158,15 @@ public class SimulationPpProviderTest {
 
         // Arrange
         SimulationPpProvider target = new SimulationPpProvider() {
-            public boolean IsRunning() {
+        /*    public boolean IsRunning() {
                 return true;
-            }
+            }*/
         };
         target.setSimulationData(DATA_SCENARIO_DATE);
         FakePpListener ppListener = new FakePpListener();
         target.setParameterSink(ppListener);
+        target.startAsync().awaitRunning();
+        
         target.enable();
 
         // Act
@@ -173,7 +175,8 @@ public class SimulationPpProviderTest {
         long dateEnd = TimeEncoding.getWallclockTime();
 
         // Assert
-        assertTrue(ppListener.receivedValue.size() == 2);
+        System.out.println("values: "+ppListener.receivedValue);
+        assertEquals(2, ppListener.receivedValue.size());
         assertTrue(ppListener.receivedValue.get(1).getGenerationTime() == ppListener.receivedValue.get(1).getAcquisitionTime() - 1500);
 
         long elapsedTimeGen0 = ppListener.receivedValue.get(0).getGenerationTime() - dateStart;

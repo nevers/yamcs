@@ -10,7 +10,7 @@ import org.rocksdb.CompactionStyle;
 import org.rocksdb.DBOptions;
 import org.rocksdb.Options;
 import org.rocksdb.RocksDB;
-import org.yamcs.yarch.oldrocksdb.YRDB;
+import org.yamcs.yarch.rocksdb.YRDB;
 
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;

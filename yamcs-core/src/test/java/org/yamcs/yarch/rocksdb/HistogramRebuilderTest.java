@@ -8,8 +8,8 @@ import java.util.List;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
-import org.yamcs.TimeInterval;
 import org.yamcs.utils.TimeEncoding;
+import org.yamcs.utils.TimeInterval;
 import org.yamcs.yarch.HistogramRecord;
 import org.yamcs.yarch.Partition;
 import org.yamcs.yarch.TableDefinition;
@@ -48,13 +48,12 @@ public class HistogramRebuilderTest  extends YarchTestCase {
     
     @Test
     public void testDeleteValues() throws Exception {
-        Tablespace tablespace = new Tablespace(ydb.getName(), (byte)1);
+        Tablespace tablespace = rse.getTablespacece(ydb.getName());
         TimeInterval interval = new TimeInterval();
         Iterator<HistogramRecord> iter = rse.getHistogramIterator(ydb, tblDef, "name", interval, 0);
         assertNumElementsEqual(iter, 3);
         
-        HistogramRebuilder rebuilder = new HistogramRebuilder(tablespace, ydb,tblName);
-        
+        HistogramRebuilder rebuilder = new HistogramRebuilder(tablespace, ydb, tblName);
         rebuilder.deleteHistograms(new TimeInterval(1000L, 1000L));
         iter = rse.getHistogramIterator(ydb, tblDef, "name", interval, 0);
         assertNumElementsEqual(iter, 1);
@@ -66,13 +65,14 @@ public class HistogramRebuilderTest  extends YarchTestCase {
 
     @Test
     public void testRebuildAll() throws Exception {
-        Tablespace tablespace = new Tablespace(ydb.getName(), (byte)1);
+        Tablespace tablespace = rse.getTablespacece(ydb.getName());
         TimeInterval interval = new TimeInterval();
         Iterator<HistogramRecord> iter = rse.getHistogramIterator(ydb, tblDef, "name", interval, 0);
         assertNumElementsEqual(iter, 3);
         
         HistogramRebuilder rebuilder = new HistogramRebuilder(tablespace, ydb,  tblName);
         rebuilder.deleteHistograms(new TimeInterval());
+        
         iter = rse.getHistogramIterator(ydb, tblDef, "name", interval, 0);
         assertNumElementsEqual(iter, 0);
         

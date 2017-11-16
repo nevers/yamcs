@@ -9,11 +9,11 @@ import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.yamcs.TimeInterval;
 import org.yamcs.YamcsException;
 import org.yamcs.archive.TagDb;
 import org.yamcs.archive.TagReceiver;
 import org.yamcs.protobuf.Yamcs.ArchiveTag;
+import org.yamcs.utils.TimeInterval;
 import org.yamcs.yarch.YarchDatabaseInstance;
 
 public class RdbTagDb implements TagDb {

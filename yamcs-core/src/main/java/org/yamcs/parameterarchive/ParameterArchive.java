@@ -25,10 +25,9 @@ import org.yamcs.utils.DatabaseCorruptionException;
 import org.yamcs.utils.DecodingException;
 import org.yamcs.utils.TimeEncoding;
 import org.yamcs.yarch.YarchDatabase;
-import org.yamcs.yarch.YarchDatabaseInstance;
-import org.yamcs.yarch.oldrocksdb.RDBFactory;
+import org.yamcs.yarch.rocksdb.RDBFactory;
 import org.yamcs.yarch.oldrocksdb.StringColumnFamilySerializer;
-import org.yamcs.yarch.oldrocksdb.YRDB;
+import org.yamcs.yarch.rocksdb.YRDB;
 
 import com.google.common.util.concurrent.AbstractService;
 

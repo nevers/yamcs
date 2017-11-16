@@ -4,8 +4,8 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 
 import org.rocksdb.RocksDB;
-import org.yamcs.TimeInterval;
 import org.yamcs.YConfiguration;
+import org.yamcs.utils.TimeInterval;
 import org.yamcs.yarch.ColumnDefinition;
 import org.yamcs.yarch.DataType;
 import org.yamcs.yarch.TableDefinition;

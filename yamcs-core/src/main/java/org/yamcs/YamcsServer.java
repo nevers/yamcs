@@ -62,7 +62,7 @@ public class YamcsServer {
     private static String serverId;
     static YObjectLoader<Service> objLoader = new YObjectLoader<>();
 
-    static CrashHandler globalCrashHandler;
+    static CrashHandler globalCrashHandler =  new LogCrashHandler();
   
 
     static CrashHandler loadCrashHandler( YConfiguration conf) throws ConfigurationException, IOException {
@@ -166,9 +166,7 @@ public class YamcsServer {
         YConfiguration c = YConfiguration.getConfiguration("yamcs");
         if(c.containsKey("crashHandler")) {
             globalCrashHandler = loadCrashHandler(c);
-        } else {
-            globalCrashHandler = new LogCrashHandler();
-        }
+        } 
 
 
         if(c.containsKey("services")) {

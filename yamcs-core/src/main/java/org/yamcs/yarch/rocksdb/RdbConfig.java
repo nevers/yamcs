@@ -7,6 +7,7 @@ import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 
 import org.rocksdb.BlockBasedTableConfig;
+import org.rocksdb.BloomFilter;
 import org.rocksdb.ColumnFamilyOptions;
 import org.rocksdb.DBOptions;
 import org.rocksdb.Env;
@@ -36,7 +37,6 @@ public class RdbConfig {
     final ColumnFamilyOptions defaultColumnFamilyOptions;
     final Options defaultOptions;
     final DBOptions defaultDBOptions;
-    
     /**
      * 
      * @return the singleton instance
@@ -63,18 +63,23 @@ public class RdbConfig {
         }
         
         env = Env.getDefault();
-        defaultColumnFamilyOptions = new ColumnFamilyOptions().setWriteBufferSize(2*1024*1024);//2MB
+        defaultColumnFamilyOptions = new ColumnFamilyOptions();
+        
+        
         BlockBasedTableConfig tableFormatConfig = new BlockBasedTableConfig();
-        tableFormatConfig.setBlockSize(32*1024);//32KB
-        tableFormatConfig.setBlockCacheSize(8l*1024*1024);//8MB
-        defaultColumnFamilyOptions.setTableFormatConfig(tableFormatConfig);
+        tableFormatConfig.setBlockSize(256*1024);//256KB
+        tableFormatConfig.setBlockCacheSize(100l*1024*1024);//50MB
+        tableFormatConfig.setFilter(new BloomFilter());
         
         defaultOptions = new Options();
+        defaultOptions.setWriteBufferSize(50*1024*1024);//50MB
         defaultOptions.setEnv(env);
         defaultOptions.setCreateIfMissing(true);
         defaultOptions.setTableFormatConfig(tableFormatConfig);
+        defaultOptions.useFixedLengthPrefixExtractor(4);
         
         defaultDBOptions = new DBOptions().setCreateIfMissing(true);
+        
     }
     
     /**
@@ -87,8 +92,6 @@ public class RdbConfig {
     }
     /**
      * default options if no table specific config has been configured.
-     *  
-     *  at least the environment and the create if not open are set.
      *  
      *  
      * @return default options
@@ -190,7 +193,9 @@ public class RdbConfig {
                     }
                     options.setTableFormatConfig(tableFormatConfig);
                     cfOptions.setTableFormatConfig(tableFormatConfig);
+                   
                 }
+                options.useFixedLengthPrefixExtractor(4);
             }
         }
         

@@ -13,7 +13,7 @@ import org.rocksdb.WriteBatch;
 import org.rocksdb.WriteOptions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.yamcs.TimeInterval;
+import org.yamcs.utils.TimeInterval;
 import org.yamcs.yarch.HistogramSegment;
 import org.yamcs.yarch.Partition;
 import org.yamcs.yarch.Stream;

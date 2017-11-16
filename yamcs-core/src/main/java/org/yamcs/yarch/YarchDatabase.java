@@ -51,6 +51,10 @@ public class YarchDatabase {
             for(String s:se) {
                 if(RDB_ENGINE_NAME.equalsIgnoreCase(s)) {
                     storageEngines.put(RDB_ENGINE_NAME, RdbStorageEngine.getInstance());
+                } else if(OLD_RDB_ENGINE_NAME.equalsIgnoreCase(s)) {
+                    storageEngines.put(OLD_RDB_ENGINE_NAME, org.yamcs.yarch.oldrocksdb.RdbStorageEngine.getInstance());
+                } else {
+                    throw new ConfigurationException("Unknown storage engine '"+se+"'");
                 }
             }
         }
@@ -94,7 +98,10 @@ public class YarchDatabase {
      * @param dbName database name to be removed 
      **/
     public static void removeInstance(String dbName) {
-        databases.remove(dbName);
+        YarchDatabaseInstance ydb = databases.remove(dbName);
+        if(ydb!=null) {
+            ydb.close();
+        }
     }
     
     public static void setHome(String home) {

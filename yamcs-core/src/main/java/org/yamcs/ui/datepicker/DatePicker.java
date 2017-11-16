@@ -3,8 +3,9 @@ package org.yamcs.ui.datepicker;
 import net.sourceforge.jdatepicker.JDateComponentFactory;
 import net.sourceforge.jdatepicker.impl.JDatePickerImpl;
 import net.sourceforge.jdatepicker.impl.UtilCalendarModel;
-import org.yamcs.TimeInterval;
+
 import org.yamcs.utils.TimeEncoding;
+import org.yamcs.utils.TimeInterval;
 
 import javax.swing.*;
 import javax.swing.JFormattedTextField.AbstractFormatter;

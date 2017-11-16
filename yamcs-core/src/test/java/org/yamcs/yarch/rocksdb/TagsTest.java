@@ -11,10 +11,10 @@ import java.util.Collections;
 import java.util.Comparator;
 
 import org.junit.Test;
-import org.yamcs.TimeInterval;
 import org.yamcs.archive.TagReceiver;
 import org.yamcs.protobuf.Yamcs.ArchiveTag;
 import org.yamcs.utils.FileUtils;
+import org.yamcs.utils.TimeInterval;
 import org.yamcs.yarch.YarchTestCase;
 
 public class TagsTest extends YarchTestCase {

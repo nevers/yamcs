@@ -139,13 +139,12 @@ public class RdbSelectPerfTest extends YarchTestCase {
         tdef.addColumn(new ColumnDefinition("packet", DataType.BINARY));
         TableDefinition tblDef = new TableDefinition("part_YYYY_pname", tdef, Arrays.asList("gentime"));
        
-        tblDef.setDataDir(dir);
 
         PartitioningSpec pspec = PartitioningSpec.timeAndValueSpec("gentime", "pname");
         pspec.setValueColumnType(DataType.ENUM);
         tblDef.setPartitioningSpec(pspec);
 
-        tblDef.setStorageEngineName(YarchDatabase.OLD_RDB_ENGINE_NAME);
+        tblDef.setStorageEngineName(YarchDatabase.RDB_ENGINE_NAME);
 
         ydb.createTable(tblDef);
         populateAndRead(tblDef, true);
@@ -161,13 +160,11 @@ public class RdbSelectPerfTest extends YarchTestCase {
         tdef.addColumn(new ColumnDefinition("packet", DataType.BINARY));
         TableDefinition tblDef = new TableDefinition(tblname, tdef, Arrays.asList("gentime"));
 
-        tblDef.setDataDir(dir);
-
         PartitioningSpec pspec = PartitioningSpec.timeSpec("gentime");
         pspec.setTimePartitioningSchema("YYYY");
         tblDef.setPartitioningSpec(pspec);
 
-        tblDef.setStorageEngineName(YarchDatabase.OLD_RDB_ENGINE_NAME);
+        tblDef.setStorageEngineName(YarchDatabase.RDB_ENGINE_NAME);
 
         ydb.createTable(tblDef);
 
@@ -185,12 +182,10 @@ public class RdbSelectPerfTest extends YarchTestCase {
         tdef.addColumn(new ColumnDefinition("packet", DataType.BINARY));
         TableDefinition tblDef = new TableDefinition(tblname, tdef, Arrays.asList("pname", "gentime"));
 
-        tblDef.setDataDir(dir);
-
         PartitioningSpec pspec = PartitioningSpec.noneSpec();
         tblDef.setPartitioningSpec(pspec);
 
-        tblDef.setStorageEngineName(YarchDatabase.OLD_RDB_ENGINE_NAME);
+        tblDef.setStorageEngineName(YarchDatabase.RDB_ENGINE_NAME);
 
         ydb.createTable(tblDef);
 
