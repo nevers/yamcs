@@ -40,7 +40,7 @@ public class PartitioningTest extends YarchTestCase {
     
     @Test
     public void testIndexPartitioning() throws ParseException, StreamSqlException, IOException, InterruptedException {
-        ydb.execute("create table test1(gentime timestamp, apidSeqCount int, primary key(gentime,apidSeqCount)) partition by time(gentime('YYYY/DOY'))");
+        ydb.execute("create table test1(gentime timestamp, apidSeqCount int, primary key(gentime,apidSeqCount)) partition by time(gentime('YYYY/DOY')) engine rocksdb");
         ydb.execute("create stream tm_in(gentime timestamp, apidSeqCount int)");
         ydb.execute("insert into test1 select * from tm_in");
         Stream tm_in=ydb.getStream("tm_in");
@@ -168,7 +168,7 @@ public class PartitioningTest extends YarchTestCase {
     @Test
     public void testDoublePartitioning() throws Exception {
         final long[] instant=new long[4];
-        ydb.execute("create table testdp(gentime timestamp, seqNumber int, part enum, packet binary, primary key(gentime,seqNumber)) engine rocksdb partition by time_and_value(gentime('YYYY/DOY'), part) partition_storage="+partitionStorage);
+        ydb.execute("create table testdp(gentime timestamp, seqNumber int, part enum, packet binary, primary key(gentime,seqNumber)) engine rocksdb partition by time_and_value(gentime('YYYY/DOY'), part) engine rocksdb partition_storage="+partitionStorage);
         ydb.execute("create stream tm_in(gentime timestamp, seqNumber int, part enum, packet binary)");
         ydb.execute("insert into testdp select * from tm_in");
         Stream tm_in=ydb.getStream("tm_in");

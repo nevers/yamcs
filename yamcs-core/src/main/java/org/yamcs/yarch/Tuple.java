@@ -14,7 +14,9 @@ public class Tuple {
 
 
     public Tuple(TupleDefinition definition, List<Object> columns) {
-        if(definition.size() != columns.size()) throw new IllegalArgumentException("columns size does not match the definition size");
+        if(definition.size() != columns.size()) {
+            throw new IllegalArgumentException("columns size does not match the definition size");
+        }
         this.setDefinition(definition);
         this.columns=columns;
     }

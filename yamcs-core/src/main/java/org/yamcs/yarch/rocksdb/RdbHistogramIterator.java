@@ -55,7 +55,6 @@ class RdbHistogramIterator implements Iterator<HistogramRecord> {
 
         PartitionManager partMgr = RdbStorageEngine.getInstance().getPartitionManager(tblDef);
         intervalIterator = partMgr.intervalIterator(interval);
-        
         log = LoggingUtils.getLogger(this.getClass(), ydb.getName(), tblDef);
         readNextPartition();
     }
@@ -73,28 +72,30 @@ class RdbHistogramIterator implements Iterator<HistogramRecord> {
         }
 
         RdbHistogramInfo hist = (RdbHistogramInfo) intv.getHistogram(colName);
-        
+    
 
         if(hist==null) {
             readNextPartition();
             return;
         }
         rdb = tablespace.getRdb(hist.partitionDir, false);
+        
         long segStart = interval.hasStart() ? segmentStart(interval.getStart()) : 0;
         byte[] dbKeyStart = ByteArrayUtils.encodeInt(hist.tbsIndex, new byte[12], 0);
-        ByteArrayUtils.encodeLong(segStart, dbKeyStart, 4);
+        ByteArrayUtils.encodeLong(segStart, dbKeyStart, TBS_INDEX_SIZE);
 
         boolean strictEnd;
         byte[] dbKeyStop;
         if (interval.hasStop()) {
             strictEnd = false;
             dbKeyStop = ByteArrayUtils.encodeInt(hist.tbsIndex, new byte[12], 0);
-            ByteArrayUtils.encodeLong(segStart, dbKeyStop, 4);
+            long segStop = segmentStart(interval.getStop());
+            ByteArrayUtils.encodeLong(segStop, dbKeyStop, TBS_INDEX_SIZE);
         } else {
             dbKeyStop = ByteArrayUtils.encodeInt(hist.tbsIndex + 1, new byte[12], 0);
             strictEnd = true;
         }
-
+        
         segmentIterator = new AscendingRangeIterator(rdb.newIterator(), dbKeyStart, false, dbKeyStop, strictEnd);
         readNextSegments();
         tablespace.dispose(rdb);
@@ -108,8 +109,8 @@ class RdbHistogramIterator implements Iterator<HistogramRecord> {
         }
 
         ByteBuffer bb = ByteBuffer.wrap(segmentIterator.key());
-        long sstart = bb.getLong(4);
-
+        long sstart = bb.getLong(RdbStorageEngine.TBS_INDEX_SIZE);
+        
         while (true) {
             boolean beyondStop = addRecords(segmentIterator.key(), segmentIterator.value());
             if (beyondStop) {

@@ -55,12 +55,12 @@ public class AscendingRangeIterator implements DbIterator {
             if(iterator.isValid()) {
                 curKey = iterator.key();
                 startFound = true;
-
             }
         } else {
             iterator.seek(rangeStart);
             if(iterator.isValid()) {
                 curKey = iterator.key();
+                    
                 if(strictStart && ByteArrayUtils.startsWith(curKey, rangeStart)) {
                     iterator.next();
                     if(iterator.isValid()) {
@@ -72,7 +72,6 @@ public class AscendingRangeIterator implements DbIterator {
                 }
             }
         }
-
         if(startFound) {
             //check that it is not beyond the end
             if(rangeEnd!=null) {

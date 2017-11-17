@@ -2,6 +2,7 @@ package org.yamcs.yarch.rocksdb;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 import org.rocksdb.RocksDBException;
@@ -23,7 +24,7 @@ import org.yamcs.yarch.TupleDefinition;
 import org.yamcs.yarch.YarchDatabaseInstance;
 
 import static org.yamcs.yarch.rocksdb.RdbStorageEngine.dbKey;
-
+import static org.yamcs.yarch.rocksdb.RdbStorageEngine.TBS_INDEX_SIZE;;
 
 /**
  * table writer that prepends the partition binary value in front of the key
@@ -35,10 +36,10 @@ public class RdbTableWriter extends TableWriter {
     private final RdbPartitionManager partitionManager;
     private final PartitioningSpec partitioningSpec;
     Logger log = LoggerFactory.getLogger(this.getClass().getName());
-    static final byte[] zerobytes = new byte[0]; 
+    static final byte[] zerobytes = new byte[0];
     Tablespace tablespace;
-    
-    public RdbTableWriter(Tablespace tablespace, YarchDatabaseInstance ydb, TableDefinition tableDefinition, 
+
+    public RdbTableWriter(Tablespace tablespace, YarchDatabaseInstance ydb, TableDefinition tableDefinition,
             InsertMode mode, RdbPartitionManager pm) {
         super(ydb, tableDefinition, mode);
         this.partitioningSpec = tableDefinition.getPartitioningSpec();
@@ -52,44 +53,45 @@ public class RdbTableWriter extends TableWriter {
             RdbPartition partition = getDbPartition(t);
             YRDB db = tablespace.getRdb(partition.dir, false);
 
-            boolean inserted=false;
-            boolean updated=false;
+            boolean inserted = false;
+            boolean updated = false;
             switch (mode) {
             case INSERT:
                 inserted = insert(db, partition, t);
                 break;
             case UPSERT:
                 inserted = upsert(db, partition, t);
-                updated=!inserted;
+                updated = !inserted;
                 break;
             case INSERT_APPEND:
-                inserted=insertAppend(db, partition, t);
+                inserted = insertAppend(db, partition, t);
                 break;
             case UPSERT_APPEND:
-                inserted=upsertAppend(db, partition, t);
-                updated=!inserted;
+                inserted = upsertAppend(db, partition, t);
+                updated = !inserted;
                 break;
             }
-           
-            if(inserted && tableDefinition.hasHistogram()) {
+
+            if (inserted && tableDefinition.hasHistogram()) {
                 addHistogram(db, t);
             }
-            if(updated && tableDefinition.hasHistogram()) {
+            if (updated && tableDefinition.hasHistogram()) {
                 // TODO updateHistogram(t);
             }
             tablespace.dispose(db);
-        } catch (IOException|RocksDBException e) {
+        } catch (IOException | RocksDBException e) {
             log.error("failed to insert a record: ", e);
-            YamcsServer.getCrashHandler(ydb.getYamcsInstance()).handleCrash("Archive", "failed to insert a record in "+tableDefinition.getName()+": "+e);
+            YamcsServer.getCrashHandler(ydb.getYamcsInstance()).handleCrash("Archive",
+                    "failed to insert a record in " + tableDefinition.getName() + ": " + e);
         }
 
     }
-  
+
     private boolean insert(YRDB db, RdbPartition partition, Tuple t) throws RocksDBException {
         byte[] k = getPartitionKey(partition, tableDefinition.serializeKey(t));
         byte[] v = tableDefinition.serializeValue(t);
-        
-        if(db.get(k)==null) {
+
+        if (db.get(k) == null) {
             db.put(k, v);
             return true;
         } else {
@@ -100,8 +102,8 @@ public class RdbTableWriter extends TableWriter {
     private boolean upsert(YRDB db, RdbPartition partition, Tuple t) throws RocksDBException {
         byte[] k = getPartitionKey(partition, tableDefinition.serializeKey(t));
         byte[] v = tableDefinition.serializeValue(t);
-        if(db.get(k)==null) {
-           
+        if (db.get(k) == null) {
+
             db.put(k, v);
             return true;
         } else {
@@ -110,37 +112,38 @@ public class RdbTableWriter extends TableWriter {
         }
     }
 
-
     /**
-     * returns true if a new record has been inserted and false if an record was already existing with this key (even if modified)
-     * @param partition 
-     * @throws RocksDBException 
+     * returns true if a new record has been inserted and false if an record was
+     * already existing with this key (even if modified)
+     * 
+     * @param partition
+     * @throws RocksDBException
      */
     private boolean insertAppend(YRDB db, RdbPartition partition, Tuple t) throws RocksDBException {
         byte[] k = getPartitionKey(partition, tableDefinition.serializeKey(t));
         byte[] v = db.get(k);
-        boolean inserted=false;
-        if(v!=null) {//append to an existing row
-            Tuple oldt=tableDefinition.deserialize(k, v);
-            TupleDefinition tdef=t.getDefinition();
-            TupleDefinition oldtdef=oldt.getDefinition();
+        boolean inserted = false;
+        if (v != null) {// append to an existing row
+            Tuple oldt = tableDefinition.deserialize(k, v);
+            TupleDefinition tdef = t.getDefinition();
+            TupleDefinition oldtdef = oldt.getDefinition();
 
-            boolean changed=false;
-            ArrayList<Object> cols=new ArrayList<Object>(oldt.getColumns().size()+t.getColumns().size());
+            boolean changed = false;
+            ArrayList<Object> cols = new ArrayList<Object>(oldt.getColumns().size() + t.getColumns().size());
             cols.addAll(oldt.getColumns());
-            for(ColumnDefinition cd:tdef.getColumnDefinitions()) {
-                if(!oldtdef.hasColumn(cd.getName())) {
+            for (ColumnDefinition cd : tdef.getColumnDefinitions()) {
+                if (!oldtdef.hasColumn(cd.getName())) {
                     oldtdef.addColumn(cd);
                     cols.add(t.getColumn(cd.getName()));
-                    changed=true;
+                    changed = true;
                 }
             }
-            if(changed) {
+            if (changed) {
                 oldt.setColumns(cols);
-                v=tableDefinition.serializeValue(oldt);
+                v = tableDefinition.serializeValue(oldt);
                 db.put(k, v);
             }
-        } else {//new row
+        } else {// new row
             inserted = true;
             v = tableDefinition.serializeValue(t);
             db.put(k, v);
@@ -149,87 +152,91 @@ public class RdbTableWriter extends TableWriter {
     }
 
     private boolean upsertAppend(YRDB db, RdbPartition partition, Tuple t) throws RocksDBException {
-        byte[] k = getPartitionKey(partition, tableDefinition.serializeKey(t));
-       
-        byte[] v = db.get(k);
-        boolean inserted=false;
-        if(v!=null) {//append to an existing row
-            Tuple oldt=tableDefinition.deserialize(k, v);
-            TupleDefinition tdef=t.getDefinition();
-            TupleDefinition oldtdef=oldt.getDefinition();
+        byte[] dbKey = getPartitionKey(partition, tableDefinition.serializeKey(t));
 
-            boolean changed=false;
-            ArrayList<Object> cols=new ArrayList<Object>(oldt.getColumns().size()+t.getColumns().size());
+        byte[] v = db.get(dbKey);
+        boolean inserted = false;
+        if (v != null) {// append to an existing row
+            byte[] k = Arrays.copyOfRange(dbKey, TBS_INDEX_SIZE, dbKey.length);
+            Tuple oldt = tableDefinition.deserialize(k, v);
+            TupleDefinition tdef = t.getDefinition();
+            TupleDefinition oldtdef = oldt.getDefinition();
+
+            boolean changed = false;
+            ArrayList<Object> cols = new ArrayList<>(oldt.getColumns().size() + t.getColumns().size());
             cols.addAll(oldt.getColumns());
-            for(ColumnDefinition cd:tdef.getColumnDefinitions()) {
+            for (ColumnDefinition cd : tdef.getColumnDefinitions()) {
                 if (oldtdef.hasColumn(cd.getName())) {
-                    // currently always says it changed. Not sure if it's worth checking if different
+                    // currently always says it changed. Not sure if it's worth
+                    // checking if different
                     cols.set(oldt.getColumnIndex(cd.getName()), t.getColumn(cd.getName()));
-                    changed=true;
+                    changed = true;
                 } else {
                     oldtdef.addColumn(cd);
                     cols.add(t.getColumn(cd.getName()));
-                    changed=true;
+                    changed = true;
                 }
             }
-            if(changed) {
+            if (changed) {
                 oldt.setColumns(cols);
-                v=tableDefinition.serializeValue(oldt);
-                db.put(k, v);
+                v = tableDefinition.serializeValue(oldt);
+                db.put(dbKey, v);
             }
-        } else {//new row
-            inserted=true;
-            v=tableDefinition.serializeValue(t);
-            db.put(k, v);
+        } else {// new row
+            inserted = true;
+            v = tableDefinition.serializeValue(t);
+            db.put(dbKey, v);
         }
         return inserted;
     }
 
-    //prepends the partition binary value to the key 
-    private byte[] getPartitionKey(RdbPartition partition, byte[] k) {     
-        byte[] pk = ByteArrayUtils.encodeInt(partition.tbsIndex, new byte[4+k.length], 0);       
+    // prepends the partition binary value to the key
+    private byte[] getPartitionKey(RdbPartition partition, byte[] k) {
+        byte[] pk = ByteArrayUtils.encodeInt(partition.tbsIndex, new byte[4 + k.length], 0);
         System.arraycopy(k, 0, pk, 4, k.length);
         return pk;
     }
+
     /**
      * get the filename where the tuple would fit (can be a partition)
+     * 
      * @param t
      * @return the partition where the tuple fits
-     * @throws IOException if there was an error while creating the directories where the file should be located
+     * @throws IOException
+     *             if there was an error while creating the directories where
+     *             the file should be located
      */
     public RdbPartition getDbPartition(Tuple t) throws IOException {
-        long time=TimeEncoding.INVALID_INSTANT;
-        Object value=null;
-        if(partitioningSpec.timeColumn!=null) {
-            time =(Long)t.getColumn(partitioningSpec.timeColumn);
+        long time = TimeEncoding.INVALID_INSTANT;
+        Object value = null;
+        if (partitioningSpec.timeColumn != null) {
+            time = (Long) t.getColumn(partitioningSpec.timeColumn);
         }
-        if(partitioningSpec.valueColumn!=null) {
-            value=t.getColumn(partitioningSpec.valueColumn);
-            ColumnDefinition cd=tableDefinition.getColumnDefinition(partitioningSpec.valueColumn);
-            if(cd.getType()==DataType.ENUM) {
-                value = tableDefinition.addAndGetEnumValue(partitioningSpec.valueColumn, (String) value);                
+        if (partitioningSpec.valueColumn != null) {
+            value = t.getColumn(partitioningSpec.valueColumn);
+            ColumnDefinition cd = tableDefinition.getColumnDefinition(partitioningSpec.valueColumn);
+            if (cd.getType() == DataType.ENUM) {
+                value = tableDefinition.addAndGetEnumValue(partitioningSpec.valueColumn, (String) value);
             }
         }
-        return (RdbPartition)partitionManager.createAndGetPartition(time, value);
+        return (RdbPartition) partitionManager.createAndGetPartition(time, value);
     }
-    
+
     public void close() {
     }
-    
+
     @Override
     public void streamClosed(Stream stream) {
 
     }
-    
-    
-    
+
     protected synchronized void addHistogram(YRDB db, Tuple t) throws IOException, RocksDBException {
         List<String> histoColumns = tableDefinition.getHistogramColumns();
-        for(String columnName: histoColumns) {
-            if(!t.hasColumn(columnName)) {
+        for (String columnName : histoColumns) {
+            if (!t.hasColumn(columnName)) {
                 continue;
             }
-            long time = (Long)t.getColumn(0);
+            long time = (Long) t.getColumn(0);
             RdbHistogramInfo histo = (RdbHistogramInfo) partitionManager.createAndGetHistogram(time, columnName);
             ColumnSerializer cs = tableDefinition.getColumnSerializer(columnName);
             byte[] v = cs.toByteArray(t.getColumn(columnName));
@@ -237,21 +244,22 @@ public class RdbTableWriter extends TableWriter {
         }
     }
 
-
-    private void addHistogramForColumn(YRDB db, int  histoTbsIndex, byte[] columnv, long time) throws RocksDBException {
-        long sstart = time/HistogramSegment.GROUPING_FACTOR;
-        int dtime = (int)(time%HistogramSegment.GROUPING_FACTOR);
+    private void addHistogramForColumn(YRDB db, int histoTbsIndex, byte[] columnv, long time) throws RocksDBException {
+        long sstart = time / HistogramSegment.GROUPING_FACTOR;
+        int dtime = (int) (time % HistogramSegment.GROUPING_FACTOR);
 
         HistogramSegment segment;
         byte[] key = HistogramSegment.key(sstart, columnv);
         byte[] val = db.get(dbKey(histoTbsIndex, key));
-        if(val==null) {
+        if (val == null) {
             segment = new HistogramSegment(columnv, sstart);
         } else {
             segment = new HistogramSegment(columnv, sstart, val);
         }
 
         segment.merge(dtime);
-        db.put(dbKey(histoTbsIndex, segment.key()), segment.val());
+
+        byte[] k = dbKey(histoTbsIndex, segment.key());
+        db.put(k, segment.val());
     }
 }

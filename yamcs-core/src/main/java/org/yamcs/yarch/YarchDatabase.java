@@ -17,14 +17,17 @@ import org.yamcs.yarch.rocksdb.RdbStorageEngine;
  */
 public class YarchDatabase {
     YarchDatabase instance;
-    //note that this home variable is currently changed in the org.yamcs.cli.CheckConfig
-    // to avoid errors when running check config in parallel with a running yamcs server
+    // note that this home variable is currently changed in the
+    // org.yamcs.cli.CheckConfig
+    // to avoid errors when running check config in parallel with a running
+    // yamcs server
     private static String home;
     static YConfiguration config;
-    
-    private static Map<String, StorageEngine> storageEngines=new HashMap<>();
-    public static final String OLD_RDB_ENGINE_NAME="rocksdb";
-    public static final String RDB_ENGINE_NAME="rocksdb2";
+
+    private static Map<String, StorageEngine> storageEngines = new HashMap<>();
+    public static final String OLD_RDB_ENGINE_OLD_NAME = "rocksdb";
+    public static final String OLD_RDB_ENGINE_NAME = "oldrocksdb";
+    public static final String RDB_ENGINE_NAME = "rocksdb2";
     private static final String DEFAULT_STORAGE_ENGINE = RDB_ENGINE_NAME;
     private static final String defaultStorageEngineName;
 
@@ -33,77 +36,86 @@ public class YarchDatabase {
         home = config.getString("dataDir");
 
         List<String> se;
-        if(config.containsKey("storageEngines")) {
+        if (config.containsKey("storageEngines")) {
             se = config.getList("storageEngines");
         } else {
-            se = Arrays.asList(RDB_ENGINE_NAME, OLD_RDB_ENGINE_NAME);
+            se = Arrays.asList(RDB_ENGINE_NAME, OLD_RDB_ENGINE_OLD_NAME);
         }
-        if(config.containsKey("defaultStorageEngine")) {
+        if (config.containsKey("defaultStorageEngine")) {
             defaultStorageEngineName = config.getString("defaultStorageEngine");
-            if(!RDB_ENGINE_NAME.equalsIgnoreCase(defaultStorageEngineName))  {
-                throw new ConfigurationException("Unknown storage engine: "+defaultStorageEngineName);
+            if (!RDB_ENGINE_NAME.equalsIgnoreCase(defaultStorageEngineName)) {
+                throw new ConfigurationException("Unknown storage engine: " + defaultStorageEngineName);
             }
         } else {
             defaultStorageEngineName = DEFAULT_STORAGE_ENGINE;
         }
 
-        if(se!=null) {
-            for(String s:se) {
-                if(RDB_ENGINE_NAME.equalsIgnoreCase(s)) {
+        if (se != null) {
+            for (String s : se) {
+                if (RDB_ENGINE_NAME.equalsIgnoreCase(s)) {
                     storageEngines.put(RDB_ENGINE_NAME, RdbStorageEngine.getInstance());
-                } else if(OLD_RDB_ENGINE_NAME.equalsIgnoreCase(s)) {
+                } else if (OLD_RDB_ENGINE_OLD_NAME.equalsIgnoreCase(s) || OLD_RDB_ENGINE_NAME.equalsIgnoreCase(s)) {
+                    storageEngines.put(OLD_RDB_ENGINE_OLD_NAME,
+                            org.yamcs.yarch.oldrocksdb.RdbStorageEngine.getInstance());
                     storageEngines.put(OLD_RDB_ENGINE_NAME, org.yamcs.yarch.oldrocksdb.RdbStorageEngine.getInstance());
                 } else {
-                    throw new ConfigurationException("Unknown storage engine '"+se+"'");
+                    throw new ConfigurationException("Unknown storage engine '" + se + "'");
                 }
             }
         }
 
-    } 
-    static Map<String,YarchDatabaseInstance> databases = new HashMap<>();
+    }
+    static Map<String, YarchDatabaseInstance> databases = new HashMap<>();
+
     /**
      * 
      * @param yamcsInstance
-     * @param ignoreVersionIncompatibility - if set to true, the created StorageEngines will load old data (as far as possible). Used only when upgrading from old data formats to new ones.
+     * @param ignoreVersionIncompatibility
+     *            - if set to true, the created StorageEngines will load old
+     *            data (as far as possible). Used only when upgrading from old
+     *            data formats to new ones.
      * 
      */
-    public static synchronized YarchDatabaseInstance getInstance(String yamcsInstance, boolean ignoreVersionIncompatibility) {
+    public static synchronized YarchDatabaseInstance getInstance(String yamcsInstance,
+            boolean ignoreVersionIncompatibility) {
         YarchDatabaseInstance instance = databases.get(yamcsInstance);
-        if(instance==null) {
+        if (instance == null) {
             try {
                 instance = new YarchDatabaseInstance(yamcsInstance);
             } catch (YarchException e) {
-                throw new RuntimeException("Cannot create database '"+yamcsInstance+"'", e);
+                throw new RuntimeException("Cannot create database '" + yamcsInstance + "'", e);
             }
             databases.put(yamcsInstance, instance);
         }
         return instance;
     }
+
     static public YarchDatabaseInstance getInstance(String yamcsInstance) {
         return getInstance(yamcsInstance, false);
     }
-   
 
     static public boolean hasInstance(String dbname) {
         return databases.containsKey(dbname);
     }
 
     public static boolean instanceExistsOnDisk(String yamcsInstance) {
-        File dir=new File(getHome()+"/"+yamcsInstance);
+        File dir = new File(getHome() + "/" + yamcsInstance);
         return dir.exists() && dir.isDirectory();
     }
-    
 
-    /**to be used for testing
-     * @param dbName database name to be removed 
+    /**
+     * to be used for testing
+     * 
+     * @param dbName
+     *            database name to be removed
      **/
     public static void removeInstance(String dbName) {
         YarchDatabaseInstance ydb = databases.remove(dbName);
-        if(ydb!=null) {
+        if (ydb != null) {
             ydb.close();
         }
     }
-    
+
     public static void setHome(String home) {
         YarchDatabase.home = home;
     }
@@ -111,6 +123,7 @@ public class YarchDatabase {
     public static String getHome() {
         return home;
     }
+
     public static String getDataDir() {
         return home;
     }
@@ -118,12 +131,15 @@ public class YarchDatabase {
     public static StorageEngine getDefaultStorageEngine() {
         return storageEngines.get(defaultStorageEngineName);
     }
+
     public static StorageEngine getStorageEngine(String storageEngineName) {
         return storageEngines.get(storageEngineName);
     }
+
     public static Set<String> getStorageEngineNamesk() {
         return storageEngines.keySet();
     }
+
     public static String getDefaultStorageEngineName() {
         return defaultStorageEngineName;
     }

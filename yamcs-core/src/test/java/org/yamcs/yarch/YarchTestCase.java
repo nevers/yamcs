@@ -21,7 +21,6 @@ import org.yamcs.yarch.streamsql.StreamSqlException;
 import org.yamcs.yarch.streamsql.StreamSqlParser;
 import org.yamcs.yarch.streamsql.StreamSqlResult;
 
-
 public abstract class YarchTestCase {
     protected StreamSqlParser parser;
     protected ExecutionContext context;
@@ -29,103 +28,85 @@ public abstract class YarchTestCase {
     static boolean littleEndian;
     protected String instance;
     Random random = new Random();
-    @BeforeClass 
+
+    @BeforeClass
     public static void setUpYarch() throws Exception {
-	YConfiguration.setup(); //reset the prefix if maven runs multiple tests in the same java 
-	YConfiguration config=YConfiguration.getConfiguration("yamcs");
-	if(config.containsKey("littleEndian")) {
-	    littleEndian=config.getBoolean("littleEndian");
-	} else {
-	    littleEndian=false;
-	}
-	//java.util.logging.Logger.getLogger("org.yamcs").setLevel(java.util.logging.Level.ALL);
+        YConfiguration.setup(); // reset the prefix if maven runs multiple tests
+                                // in the same java
+        YConfiguration config = YConfiguration.getConfiguration("yamcs");
+        if (config.containsKey("littleEndian")) {
+            littleEndian = config.getBoolean("littleEndian");
+        } else {
+            littleEndian = false;
+        }
+        // java.util.logging.Logger.getLogger("org.yamcs").setLevel(java.util.logging.Level.ALL);
     }
 
     @Before
     public void setUp() throws Exception {
-	YConfiguration config = YConfiguration.getConfiguration("yamcs");
-	String dir = config.getString("dataDir");
-	instance = "yarchtest_"+this.getClass().getSimpleName();
-	context = new ExecutionContext(instance);
-	
-	if(YarchDatabase.hasInstance(instance)) {      
+        YConfiguration config = YConfiguration.getConfiguration("yamcs");
+        String dir = config.getString("dataDir");
+        instance = "yarchtest_" + this.getClass().getSimpleName();
+        context = new ExecutionContext(instance);
+
+        if (YarchDatabase.hasInstance(instance)) {
             YarchDatabase.removeInstance(instance);
             RdbStorageEngine rse = RdbStorageEngine.getInstance();
-            if(rse.getTablespacece(instance)!=null) {
+            if (rse.getTablespacece(instance) != null) {
                 rse.dropTablespace(instance);
             }
         }
-        
-	  
-	File ytdir=new File(dir+"/"+instance);
-	File rdbdir = new File(dir+"/"+instance+".rdb");
-	
-	FileUtils.deleteRecursively(ytdir.toPath());
-	FileUtils.deleteRecursively(rdbdir.toPath());
-	
-	if(!ytdir.mkdirs()) throw new IOException("Cannot create directory "+ytdir);
-	
-	
-	ydb = YarchDatabase.getInstance(instance);
+
+        File ytdir = new File(dir + "/" + instance);
+        File rdbdir = new File(dir + "/" + instance + ".rdb");
+
+        FileUtils.deleteRecursively(ytdir.toPath());
+        FileUtils.deleteRecursively(rdbdir.toPath());
+
+        if (!ytdir.mkdirs())
+            throw new IOException("Cannot create directory " + ytdir);
+
+        ydb = YarchDatabase.getInstance(instance);
     }
 
-    
-    
-    
-    
     protected StreamSqlResult execute(String cmd) throws StreamSqlException, ParseException {
-	return ydb.execute(cmd);
+        return ydb.execute(cmd);
     }
 
     protected List<Tuple> fetchAllFromTable(String tableName) throws Exception {
-        String sname = tableName+"_out_"+random.nextInt(10000);
-        ydb.execute("create stream "+sname+" as select * from "+tableName);
+        String sname = tableName + "_out_" + random.nextInt(10000);
+        ydb.execute("create stream " + sname + " as select * from " + tableName);
         return fetchAll(sname);
     }
-    protected List<Tuple> fetchAll(String streamName) throws InterruptedException{
-	final List<Tuple> tuples=new ArrayList<Tuple>();
-	final Semaphore semaphore=new Semaphore(0);
-	Stream s = ydb.getStream(streamName);
-	if(s==null) throw new IllegalArgumentException("No stream named '"+streamName+"' in instance "+instance);
-	s.addSubscriber(new StreamSubscriber() {
 
-	    @Override
-	    public void streamClosed(Stream stream) {
-		semaphore.release();
-	    }
+    protected List<Tuple> fetchAll(String streamName) throws InterruptedException {
+        final List<Tuple> tuples = new ArrayList<Tuple>();
+        final Semaphore semaphore = new Semaphore(0);
+        Stream s = ydb.getStream(streamName);
+        if (s == null)
+            throw new IllegalArgumentException("No stream named '" + streamName + "' in instance " + instance);
+        s.addSubscriber(new StreamSubscriber() {
 
-	    @Override
-	    public void onTuple(Stream stream, Tuple tuple) {
-		tuples.add(tuple);
-	    }
-	});
-	s.start();
-	semaphore.acquire();
-	return tuples;
+            @Override
+            public void streamClosed(Stream stream) {
+                semaphore.release();
+            }
+
+            @Override
+            public void onTuple(Stream stream, Tuple tuple) {
+                tuples.add(tuple);
+            }
+        });
+        s.start();
+        semaphore.acquire();
+        return tuples;
     }
-    
+
     @Parameters
     public static List<String> getStorageEngineConfigs() {
         return Arrays.asList("engine rocksdb partition_storage=IN_KEY",
-                "engine rocksdb partition_storage=COLUMN_FAMILY",
+                "engine rocksdb partition_storage=COLUMN_FAMILY", 
                 "engine rocksdb2");
     }
-            
-    public static List<StorageEngineConfig> getTestConfigs() {
-        List<StorageEngineConfig> al = new ArrayList<>();
-        al.add(new StorageEngineConfig("rocksdb", "IN_KEY"));
-        al.add(new StorageEngineConfig("rocksdb2", "IN_KEY"));
-        return al;
-    }
-    
-    
-    static class StorageEngineConfig {
-        String storageEngine;
-        String partitionStorage;
-        public StorageEngineConfig(String storageEngine, String partitionStorage) {
-            this.storageEngine = storageEngine;
-            this.partitionStorage = partitionStorage;
-        }
 
-    }
 }

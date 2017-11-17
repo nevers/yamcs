@@ -34,7 +34,7 @@ import org.yamcs.yarch.TableWriter.InsertMode;
 import org.yamcs.yarch.streamsql.StreamSqlException;
 
 import com.google.common.io.Files;
-//@Ignore
+@Ignore
 public class RdbSelectPerfTest extends YarchTestCase {
     private TupleDefinition tdef;
     private TableWriter tw;
@@ -144,7 +144,7 @@ public class RdbSelectPerfTest extends YarchTestCase {
         pspec.setValueColumnType(DataType.ENUM);
         tblDef.setPartitioningSpec(pspec);
 
-        tblDef.setStorageEngineName(YarchDatabase.OLD_RDB_ENGINE_NAME);
+        tblDef.setStorageEngineName(YarchDatabase.OLD_RDB_ENGINE_OLD_NAME);
 
         ydb.createTable(tblDef);
         populateAndRead(tblDef, true);
@@ -166,7 +166,7 @@ public class RdbSelectPerfTest extends YarchTestCase {
         pspec.setTimePartitioningSchema("YYYY");
         tblDef.setPartitioningSpec(pspec);
 
-        tblDef.setStorageEngineName(YarchDatabase.OLD_RDB_ENGINE_NAME);
+        tblDef.setStorageEngineName(YarchDatabase.OLD_RDB_ENGINE_OLD_NAME);
 
         ydb.createTable(tblDef);
 
@@ -189,7 +189,7 @@ public class RdbSelectPerfTest extends YarchTestCase {
         PartitioningSpec pspec = PartitioningSpec.noneSpec();
         tblDef.setPartitioningSpec(pspec);
 
-        tblDef.setStorageEngineName(YarchDatabase.OLD_RDB_ENGINE_NAME);
+        tblDef.setStorageEngineName(YarchDatabase.OLD_RDB_ENGINE_OLD_NAME);
 
         ydb.createTable(tblDef);
 

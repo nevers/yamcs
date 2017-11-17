@@ -28,7 +28,7 @@ public class HistogramRebuilderTest  extends YarchTestCase {
     
     @Before
     public void populate() throws Exception {
-        String query="create table "+tblName+"(gentime timestamp, seqNum int, name string, primary key(gentime, seqNum)) histogram(name) partition by time(gentime) table_format=compressed";
+        String query="create table "+tblName+"(gentime timestamp, seqNum int, name string, primary key(gentime, seqNum)) histogram(name) partition by time(gentime) table_format=compressed engine oldrocksdb";
         ydb.execute(query);
         
         tblDef= ydb.getTable(tblName);
