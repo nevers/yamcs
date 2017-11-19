@@ -37,7 +37,6 @@ public class RdbPartitionManager extends PartitionManager {
     public void readPartitions() throws RocksDBException, IOException {
         ColumnValueSerializer cvs = new ColumnValueSerializer(tableDefinition);
         for(TablespaceRecord tr: tablespace.getTablePartitions(ydb.getName(), tableDefinition.getName())) {
-
             if(tr.hasPartitionValue()) {
                 if(tr.hasPartitionDir()) {
                     PartitionInfo pinfo = partitioningSpec.getTimePartitioningSchema().parseDir(tr.getPartitionDir());
@@ -54,9 +53,18 @@ public class RdbPartitionManager extends PartitionManager {
                 }
             }
         }
+        
+        for(TablespaceRecord tr: tablespace.getTableHistograms(ydb.getName(), tableDefinition.getName())) {
+            if(tr.hasPartitionDir()) {
+                PartitionInfo pinfo = partitioningSpec.getTimePartitioningSchema().parseDir(tr.getPartitionDir());
+                addHistogramByTime(tr, pinfo);
+            } else {
+                addHistogramByNone(tr);
+            }
+        }
     }
 
-
+   
     /** 
      * Called at startup when reading existing partitions from disk
      */
@@ -70,7 +78,28 @@ public class RdbPartitionManager extends PartitionManager {
         Partition p = new RdbPartition(tbsIndex, pinfo.partitionStart, pinfo.partitionEnd, null, pinfo.dir);
         intv.addTimePartition(p);
     }
+    /**
+     * Called at startup when reading existing histograms
+     */
+    private void addHistogramByTime(TablespaceRecord tr, PartitionInfo pinfo) {
+        Interval intv = intervals.get(pinfo.partitionStart);      
+
+        if(intv==null) {            
+            intv=new Interval(pinfo.partitionStart, pinfo.partitionEnd);
+            intervals.put(pinfo.partitionStart, intv);
+        }
+        RdbHistogramInfo hinfo = new RdbHistogramInfo(tr.getTbsIndex(), tr.getHistogramColumnName(), tr.getPartitionDir());
+        intv.addHistogram(tr.getHistogramColumnName(), hinfo);
+    }
     
+    /**
+     * Called at startup when reading existing histograms
+     */
+    private void addHistogramByNone(TablespaceRecord tr) {
+        RdbHistogramInfo hinfo = new RdbHistogramInfo(tr.getTbsIndex(), tr.getHistogramColumnName(), null);
+        pcache.addHistogram(tr.getHistogramColumnName(), hinfo);
+    }
+
     /** 
      * Called at startup when reading existing partitions from disk
      */

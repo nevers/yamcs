@@ -3,7 +3,6 @@ package org.yamcs.yarch.rocksdb;
 import static org.junit.Assert.*;
 
 import java.util.Iterator;
-import java.util.List;
 
 import org.junit.After;
 import org.junit.Before;
@@ -11,7 +10,6 @@ import org.junit.Test;
 import org.yamcs.utils.TimeEncoding;
 import org.yamcs.utils.TimeInterval;
 import org.yamcs.yarch.HistogramRecord;
-import org.yamcs.yarch.Partition;
 import org.yamcs.yarch.TableDefinition;
 import org.yamcs.yarch.TableWriter;
 import org.yamcs.yarch.Tuple;
@@ -82,21 +80,4 @@ public class HistogramRebuilderTest  extends YarchTestCase {
         
         assertNumElementsEqual(iter, 3);
     }
-    
-    private void assertNumElementsEqual(Iterator<HistogramRecord> iter, int k) {
-        int num =0;
-        while(iter.hasNext()) {
-            num++;
-            iter.next();
-        }
-        assertEquals(k, num);
-    }
-    
-    
-    private RdbPartition getFirstPartition(long start) {
-        Iterator<List<Partition>> it = rse.getPartitionManager(tblDef).iterator(start, null);
-        if(!it.hasNext()) return null;
-        return (RdbPartition) it.next().get(0);
-    }
-    
 }

@@ -107,7 +107,6 @@ public class Tablespace {
 
     private List<TablespaceRecord> filter(String instanceName, Predicate<TablespaceRecord.Builder> p) throws RocksDBException, IOException {
         List<TablespaceRecord> r = new ArrayList<>();
-        //this is not very efficient 
         try (RocksIterator it = db.newIterator(cfMetadata)) {
             it.seekToFirst();
             while(it.isValid()) {
@@ -270,8 +269,4 @@ public class Tablespace {
     public void close() {
         rdbFactory.shutdown();
     }
-
-   
-
-
 }

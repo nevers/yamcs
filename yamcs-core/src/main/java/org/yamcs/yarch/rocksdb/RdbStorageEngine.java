@@ -202,7 +202,7 @@ public class RdbStorageEngine implements StorageEngine {
         String fn = f.getName();
 
         try (FileInputStream fis = new FileInputStream(f)) {
-            String tablespaceName = fn.substring(0, fn.length() - 6);
+            String tablespaceName = fn.substring(0, fn.length() - 4);
             Yaml yaml = new Yaml(new TablespaceConstructor(tablespaceName));
             Object o = yaml.load(fis);
             if (!(o instanceof Tablespace)) {
@@ -270,5 +270,12 @@ public class RdbStorageEngine implements StorageEngine {
             throw new IllegalArgumentException("No tablespace named '" + tablespaceName + "'");
         }
         tablespace.close();
+    }
+    
+    public synchronized void shutdown() {
+        for(Tablespace t: tablespaces.values()) {
+            t.close();
+        }
+        partitionManagers.clear();
     }
 }

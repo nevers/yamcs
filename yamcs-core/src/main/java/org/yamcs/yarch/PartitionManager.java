@@ -53,12 +53,8 @@ public abstract class PartitionManager {
     public PartitionManager(TableDefinition tableDefinition) {
         this.tableDefinition = tableDefinition;
         this.partitioningSpec = tableDefinition.getPartitioningSpec();
-        if (partitioningSpec.type == _type.NONE || partitioningSpec.type == _type.VALUE) {// pcache
-                                                                                          // never
-                                                                                          // changes
-                                                                                          // in
-                                                                                          // this
-                                                                                          // case
+        if (partitioningSpec.type == _type.NONE || partitioningSpec.type == _type.VALUE) {
+            // pcache never changes in this case
             pcache = new Interval();
             intervals.put(TimeEncoding.MIN_INSTANT, pcache);
         }
@@ -297,10 +293,8 @@ public abstract class PartitionManager {
      *
      */
     public static class Interval extends TimeInterval {
-        static final Object NON_NULL = new Object(); // we use this as a key in
-                                                     // the ConcurrentHashMap in
-                                                     // case value is null (i.e.
-                                                     // time only partitioning)
+     // we use this as a key in the ConcurrentHashMap in case value is null (i.e. time only partitioning)
+        static final Object NON_NULL = new Object(); 
 
         Map<Object, Partition> partitions = new ConcurrentHashMap<>();
 
@@ -375,6 +369,4 @@ public abstract class PartitionManager {
             return l;
         }
     }
-
-   
 }

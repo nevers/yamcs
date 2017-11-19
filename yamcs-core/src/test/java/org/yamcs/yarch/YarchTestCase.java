@@ -1,9 +1,12 @@
 package org.yamcs.yarch;
 
+import static org.junit.Assert.assertEquals;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.Semaphore;
@@ -39,7 +42,7 @@ public abstract class YarchTestCase {
         } else {
             littleEndian = false;
         }
-        // java.util.logging.Logger.getLogger("org.yamcs").setLevel(java.util.logging.Level.ALL);
+        java.util.logging.Logger.getLogger("org.yamcs").setLevel(java.util.logging.Level.ALL);
     }
 
     @Before
@@ -108,5 +111,13 @@ public abstract class YarchTestCase {
                 "engine rocksdb partition_storage=COLUMN_FAMILY", 
                 "engine rocksdb2");
     }
-
+    
+    protected void assertNumElementsEqual(Iterator<?> iter, int k) {
+        int num =0;
+        while(iter.hasNext()) {
+            num++;
+            iter.next();
+        }
+        assertEquals(k, num);
+    }
 }
