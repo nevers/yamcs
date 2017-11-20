@@ -107,15 +107,6 @@ public class HistogramRebuilderTest  extends YarchTestCase {
         assertNumElementsEqual(iter, 3);
     }
     
-    private void assertNumElementsEqual(Iterator<HistogramRecord> iter, int k) {
-        int num =0;
-        while(iter.hasNext()) {
-            num++;
-            iter.next();
-        }
-        assertEquals(k, num);
-    }
-    
     private ColumnFamilyHandle getHistoCf(long start, String colName) throws Exception {
         String cfHistoName = AbstractTableWriter.getHistogramColumnFamilyName(colName);
         
