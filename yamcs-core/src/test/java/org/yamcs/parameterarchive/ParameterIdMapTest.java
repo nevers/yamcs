@@ -5,8 +5,6 @@ import static org.junit.Assert.*;
 import java.io.File;
 
 import org.junit.Test;
-import org.rocksdb.ColumnFamilyHandle;
-import org.rocksdb.RocksDB;
 import org.yamcs.protobuf.Yamcs.Value;
 import org.yamcs.utils.FileUtils;
 import org.yamcs.yarch.rocksdb.Tablespace;
@@ -15,13 +13,14 @@ public class ParameterIdMapTest {
 
     @Test
     public void test1() throws Exception {
-        Tablespace tablespace = new Tablespace("test1", (byte) 0);
-        tablespace.loadDb(false);
-        
         File f = new File("/tmp/TestParameterIdMap_test1");
         FileUtils.deleteRecursively(f.toPath());
-        RocksDB db = RocksDB.open(f.getAbsolutePath());
-        ColumnFamilyHandle cfh =  db.getDefaultColumnFamily();
+        
+        Tablespace tablespace = new Tablespace("test1", (byte) 0);
+        tablespace.setCustomDataDir(f.getAbsolutePath());
+        
+        tablespace.loadDb(false);
+      
         
         ParameterIdDb pidMap = new ParameterIdDb("test1", tablespace);
         int p1 = pidMap.createAndGet("/test1/bla", Value.Type.BOOLEAN);
@@ -33,8 +32,8 @@ public class ParameterIdMapTest {
         int p10 = pidMap.createAndGet("/test1/bla", Value.Type.DOUBLE, Value.Type.SINT32);
         assertTrue(p10 > p3);
         
-        
-        db.close();
+        tablespace.close();
+        tablespace.loadDb(false);
         
         pidMap = new ParameterIdDb("test1", tablespace);
         int p4 = pidMap.createAndGet("/test1/bla", Value.Type.BOOLEAN);

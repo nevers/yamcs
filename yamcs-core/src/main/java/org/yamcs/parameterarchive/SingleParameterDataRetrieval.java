@@ -15,6 +15,8 @@ import org.yamcs.parameterarchive.ParameterArchive.Partition;
 import org.yamcs.protobuf.Pvalue.ParameterStatus;
 import org.yamcs.utils.DatabaseCorruptionException;
 
+import static org.yamcs.parameterarchive.SortedTimeSegment.getSegmentStart;
+
 public class SingleParameterDataRetrieval {
     final private SingleParameterValueRequest spvr;
     final private ParameterArchive parchive;
@@ -28,10 +30,7 @@ public class SingleParameterDataRetrieval {
 
 
     public void retrieve(Consumer<ParameterValueArray> consumer) throws RocksDBException, IOException {
-        long startPartition = Partition.getPartitionId(spvr.start);
-        long stopPartition = Partition.getPartitionId(spvr.stop);
-
-        List<Partition> parts = parchive.getPartitions(startPartition, stopPartition, spvr.ascending);
+        List<Partition> parts = parchive.getPartitions(getSegmentStart(spvr.start), getSegmentStart(spvr.stop), spvr.ascending);
         if(spvr.parameterGroupIds.length==1) {
             for(Partition p:parts) {
                 retrieveValuesFromPartitionSingleGroup(p, consumer);

@@ -843,6 +843,33 @@ public final class Tablespace {
      * <code>optional uint32 parameterType = 9;</code>
      */
     int getParameterType();
+
+    // optional string partitioningSchema = 10;
+    /**
+     * <code>optional string partitioningSchema = 10;</code>
+     *
+     * <pre>
+     *partitioning schema used currently for parameter archive (for tables is stored in the .def file)
+     * </pre>
+     */
+    boolean hasPartitioningSchema();
+    /**
+     * <code>optional string partitioningSchema = 10;</code>
+     *
+     * <pre>
+     *partitioning schema used currently for parameter archive (for tables is stored in the .def file)
+     * </pre>
+     */
+    java.lang.String getPartitioningSchema();
+    /**
+     * <code>optional string partitioningSchema = 10;</code>
+     *
+     * <pre>
+     *partitioning schema used currently for parameter archive (for tables is stored in the .def file)
+     * </pre>
+     */
+    com.google.protobuf.ByteString
+        getPartitioningSchemaBytes();
   }
   /**
    * Protobuf type {@code TablespaceRecord}
@@ -959,6 +986,11 @@ public final class Tablespace {
               parameterType_ = input.readUInt32();
               break;
             }
+            case 82: {
+              bitField0_ |= 0x00000200;
+              partitioningSchema_ = input.readBytes();
+              break;
+            }
           }
         }
       } catch (com.google.protobuf.InvalidProtocolBufferException e) {
@@ -1046,7 +1078,7 @@ public final class Tablespace {
        *
        * <pre>
        *used to store information about the partitions of the ParameterArchive in case they are partitioned by time
-       * relevant information: instanceName
+       * relevant information: instanceName, partitioningSchema
        *there is only one record of this type for each instance and ParameterArchive
        * </pre>
        */
@@ -1096,7 +1128,7 @@ public final class Tablespace {
        *
        * <pre>
        *used to store information about the partitions of the ParameterArchive in case they are partitioned by time
-       * relevant information: instanceName
+       * relevant information: instanceName, partitioningSchema
        *there is only one record of this type for each instance and ParameterArchive
        * </pre>
        */
@@ -1508,6 +1540,61 @@ public final class Tablespace {
       return parameterType_;
     }
 
+    // optional string partitioningSchema = 10;
+    public static final int PARTITIONINGSCHEMA_FIELD_NUMBER = 10;
+    private java.lang.Object partitioningSchema_;
+    /**
+     * <code>optional string partitioningSchema = 10;</code>
+     *
+     * <pre>
+     *partitioning schema used currently for parameter archive (for tables is stored in the .def file)
+     * </pre>
+     */
+    public boolean hasPartitioningSchema() {
+      return ((bitField0_ & 0x00000200) == 0x00000200);
+    }
+    /**
+     * <code>optional string partitioningSchema = 10;</code>
+     *
+     * <pre>
+     *partitioning schema used currently for parameter archive (for tables is stored in the .def file)
+     * </pre>
+     */
+    public java.lang.String getPartitioningSchema() {
+      java.lang.Object ref = partitioningSchema_;
+      if (ref instanceof java.lang.String) {
+        return (java.lang.String) ref;
+      } else {
+        com.google.protobuf.ByteString bs = 
+            (com.google.protobuf.ByteString) ref;
+        java.lang.String s = bs.toStringUtf8();
+        if (bs.isValidUtf8()) {
+          partitioningSchema_ = s;
+        }
+        return s;
+      }
+    }
+    /**
+     * <code>optional string partitioningSchema = 10;</code>
+     *
+     * <pre>
+     *partitioning schema used currently for parameter archive (for tables is stored in the .def file)
+     * </pre>
+     */
+    public com.google.protobuf.ByteString
+        getPartitioningSchemaBytes() {
+      java.lang.Object ref = partitioningSchema_;
+      if (ref instanceof java.lang.String) {
+        com.google.protobuf.ByteString b = 
+            com.google.protobuf.ByteString.copyFromUtf8(
+                (java.lang.String) ref);
+        partitioningSchema_ = b;
+        return b;
+      } else {
+        return (com.google.protobuf.ByteString) ref;
+      }
+    }
+
     private void initFields() {
       tbsIndex_ = 0;
       type_ = org.yamcs.yarch.rocksdb.protobuf.Tablespace.TablespaceRecord.Type.TABLE_PARTITION;
@@ -1518,6 +1605,7 @@ public final class Tablespace {
       partition_ = org.yamcs.yarch.rocksdb.protobuf.Tablespace.TimeBasedPartition.getDefaultInstance();
       parameterFqn_ = "";
       parameterType_ = 0;
+      partitioningSchema_ = "";
     }
     private byte memoizedIsInitialized = -1;
     public final boolean isInitialized() {
@@ -1557,6 +1645,9 @@ public final class Tablespace {
       }
       if (((bitField0_ & 0x00000100) == 0x00000100)) {
         output.writeUInt32(9, parameterType_);
+      }
+      if (((bitField0_ & 0x00000200) == 0x00000200)) {
+        output.writeBytes(10, getPartitioningSchemaBytes());
       }
       getUnknownFields().writeTo(output);
     }
@@ -1602,6 +1693,10 @@ public final class Tablespace {
       if (((bitField0_ & 0x00000100) == 0x00000100)) {
         size += com.google.protobuf.CodedOutputStream
           .computeUInt32Size(9, parameterType_);
+      }
+      if (((bitField0_ & 0x00000200) == 0x00000200)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeBytesSize(10, getPartitioningSchemaBytes());
       }
       size += getUnknownFields().getSerializedSize();
       memoizedSerializedSize = size;
@@ -1747,6 +1842,8 @@ public final class Tablespace {
         bitField0_ = (bitField0_ & ~0x00000080);
         parameterType_ = 0;
         bitField0_ = (bitField0_ & ~0x00000100);
+        partitioningSchema_ = "";
+        bitField0_ = (bitField0_ & ~0x00000200);
         return this;
       }
 
@@ -1815,6 +1912,10 @@ public final class Tablespace {
           to_bitField0_ |= 0x00000100;
         }
         result.parameterType_ = parameterType_;
+        if (((from_bitField0_ & 0x00000200) == 0x00000200)) {
+          to_bitField0_ |= 0x00000200;
+        }
+        result.partitioningSchema_ = partitioningSchema_;
         result.bitField0_ = to_bitField0_;
         onBuilt();
         return result;
@@ -1865,6 +1966,11 @@ public final class Tablespace {
         }
         if (other.hasParameterType()) {
           setParameterType(other.getParameterType());
+        }
+        if (other.hasPartitioningSchema()) {
+          bitField0_ |= 0x00000200;
+          partitioningSchema_ = other.partitioningSchema_;
+          onChanged();
         }
         this.mergeUnknownFields(other.getUnknownFields());
         return this;
@@ -2634,6 +2740,104 @@ public final class Tablespace {
         return this;
       }
 
+      // optional string partitioningSchema = 10;
+      private java.lang.Object partitioningSchema_ = "";
+      /**
+       * <code>optional string partitioningSchema = 10;</code>
+       *
+       * <pre>
+       *partitioning schema used currently for parameter archive (for tables is stored in the .def file)
+       * </pre>
+       */
+      public boolean hasPartitioningSchema() {
+        return ((bitField0_ & 0x00000200) == 0x00000200);
+      }
+      /**
+       * <code>optional string partitioningSchema = 10;</code>
+       *
+       * <pre>
+       *partitioning schema used currently for parameter archive (for tables is stored in the .def file)
+       * </pre>
+       */
+      public java.lang.String getPartitioningSchema() {
+        java.lang.Object ref = partitioningSchema_;
+        if (!(ref instanceof java.lang.String)) {
+          java.lang.String s = ((com.google.protobuf.ByteString) ref)
+              .toStringUtf8();
+          partitioningSchema_ = s;
+          return s;
+        } else {
+          return (java.lang.String) ref;
+        }
+      }
+      /**
+       * <code>optional string partitioningSchema = 10;</code>
+       *
+       * <pre>
+       *partitioning schema used currently for parameter archive (for tables is stored in the .def file)
+       * </pre>
+       */
+      public com.google.protobuf.ByteString
+          getPartitioningSchemaBytes() {
+        java.lang.Object ref = partitioningSchema_;
+        if (ref instanceof String) {
+          com.google.protobuf.ByteString b = 
+              com.google.protobuf.ByteString.copyFromUtf8(
+                  (java.lang.String) ref);
+          partitioningSchema_ = b;
+          return b;
+        } else {
+          return (com.google.protobuf.ByteString) ref;
+        }
+      }
+      /**
+       * <code>optional string partitioningSchema = 10;</code>
+       *
+       * <pre>
+       *partitioning schema used currently for parameter archive (for tables is stored in the .def file)
+       * </pre>
+       */
+      public Builder setPartitioningSchema(
+          java.lang.String value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000200;
+        partitioningSchema_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional string partitioningSchema = 10;</code>
+       *
+       * <pre>
+       *partitioning schema used currently for parameter archive (for tables is stored in the .def file)
+       * </pre>
+       */
+      public Builder clearPartitioningSchema() {
+        bitField0_ = (bitField0_ & ~0x00000200);
+        partitioningSchema_ = getDefaultInstance().getPartitioningSchema();
+        onChanged();
+        return this;
+      }
+      /**
+       * <code>optional string partitioningSchema = 10;</code>
+       *
+       * <pre>
+       *partitioning schema used currently for parameter archive (for tables is stored in the .def file)
+       * </pre>
+       */
+      public Builder setPartitioningSchemaBytes(
+          com.google.protobuf.ByteString value) {
+        if (value == null) {
+    throw new NullPointerException();
+  }
+  bitField0_ |= 0x00000200;
+        partitioningSchema_ = value;
+        onChanged();
+        return this;
+      }
+
       // @@protoc_insertion_point(builder_scope:TablespaceRecord)
     }
 
@@ -2666,17 +2870,18 @@ public final class Tablespace {
     java.lang.String[] descriptorData = {
       "\n\020tablespace.proto\"X\n\022TimeBasedPartition" +
       "\022\024\n\014partitionDir\030\001 \001(\t\022\026\n\016partitionStart" +
-      "\030\002 \001(\003\022\024\n\014partitionEnd\030\003 \001(\003\"\346\002\n\020Tablesp" +
+      "\030\002 \001(\003\022\024\n\014partitionEnd\030\003 \001(\003\"\202\003\n\020Tablesp" +
       "aceRecord\022\020\n\010tbsIndex\030\001 \001(\r\022$\n\004type\030\002 \001(" +
       "\0162\026.TablespaceRecord.Type\022\024\n\014instanceNam" +
       "e\030\003 \001(\t\022\021\n\ttableName\030\004 \001(\t\022\033\n\023histogramC" +
       "olumnName\030\005 \001(\t\022\026\n\016partitionValue\030\006 \001(\014\022" +
       "&\n\tpartition\030\007 \001(\0132\023.TimeBasedPartition\022" +
       "\024\n\014parameterFqn\030\010 \001(\t\022\025\n\rparameterType\030\t" +
-      " \001(\r\"g\n\004Type\022\023\n\017TABLE_PARTITION\020\001\022\r\n\tHIS",
-      "TOGRAM\020\002\022\024\n\020PARCHIVE_PGID2PG\020\004\022\021\n\rPARCHI" +
-      "VE_DATA\020\005\022\022\n\016PARCHIVE_PINFO\020\006B\"\n org.yam" +
-      "cs.yarch.rocksdb.protobuf"
+      " \001(\r\022\032\n\022partitioningSchema\030\n \001(\t\"g\n\004Type",
+      "\022\023\n\017TABLE_PARTITION\020\001\022\r\n\tHISTOGRAM\020\002\022\024\n\020" +
+      "PARCHIVE_PGID2PG\020\004\022\021\n\rPARCHIVE_DATA\020\005\022\022\n" +
+      "\016PARCHIVE_PINFO\020\006B\"\n org.yamcs.yarch.roc" +
+      "ksdb.protobuf"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
       new com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {
@@ -2694,7 +2899,7 @@ public final class Tablespace {
           internal_static_TablespaceRecord_fieldAccessorTable = new
             com.google.protobuf.GeneratedMessage.FieldAccessorTable(
               internal_static_TablespaceRecord_descriptor,
-              new java.lang.String[] { "TbsIndex", "Type", "InstanceName", "TableName", "HistogramColumnName", "PartitionValue", "Partition", "ParameterFqn", "ParameterType", });
+              new java.lang.String[] { "TbsIndex", "Type", "InstanceName", "TableName", "HistogramColumnName", "PartitionValue", "Partition", "ParameterFqn", "ParameterType", "PartitioningSchema", });
           return null;
         }
       };

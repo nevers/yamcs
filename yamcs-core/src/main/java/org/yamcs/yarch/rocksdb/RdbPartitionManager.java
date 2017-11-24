@@ -149,7 +149,7 @@ public class RdbPartitionManager extends PartitionManager {
             trb.setPartitionValue(ByteString.copyFrom(bvalue));
         }
         try {
-            TablespaceRecord tr = tablespace.createRecord(ydb.getName(), trb);
+            TablespaceRecord tr = tablespace.createMetadataRecord(ydb.getName(), trb);
             return new  RdbPartition(tr.getTbsIndex(), pinfo.getStart(), pinfo.getEnd(), value, pinfo.getDir());
         } catch (RocksDBException e) {
             throw new IOException(e);
@@ -165,10 +165,13 @@ public class RdbPartitionManager extends PartitionManager {
             ColumnValueSerializer cvs = new ColumnValueSerializer(tableDefinition);
             bvalue = cvs.objectToByteArray(value);
         }
-        TablespaceRecord.Builder trb = TablespaceRecord.newBuilder().setType(Type.TABLE_PARTITION)
-                .setTableName(tblName).setPartitionValue(ByteString.copyFrom(bvalue));
+        TablespaceRecord.Builder trb = TablespaceRecord.newBuilder()
+                .setType(Type.TABLE_PARTITION).setTableName(tblName);
+        if(bvalue!=null) {
+            trb.setPartitionValue(ByteString.copyFrom(bvalue));
+        }
         try {
-            TablespaceRecord tr = tablespace.createRecord(ydb.getName(), trb);
+            TablespaceRecord tr = tablespace.createMetadataRecord(ydb.getName(), trb);
             return new RdbPartition(tr.getTbsIndex(), Long.MIN_VALUE, Long.MAX_VALUE, value, null);
         } catch (RocksDBException e) {
             throw new IOException(e);
@@ -183,7 +186,7 @@ public class RdbPartitionManager extends PartitionManager {
                     .setHistogramColumnName(columnName).setPartition(TimeBasedPartition.newBuilder().setPartitionDir(pinfo.getDir())
                             .setPartitionStart(pinfo.getStart()).setPartitionEnd(pinfo.getEnd()).build());
 
-            TablespaceRecord tr = tablespace.createRecord(ydb.getName(), trb);
+            TablespaceRecord tr = tablespace.createMetadataRecord(ydb.getName(), trb);
             return new RdbHistogramInfo(tr.getTbsIndex(), columnName, pinfo.getDir());                       
         } catch (RocksDBException e) {
             throw new IOException(e);
@@ -195,7 +198,7 @@ public class RdbPartitionManager extends PartitionManager {
         try {
             TablespaceRecord.Builder trb = TablespaceRecord.newBuilder().setTableName(tableDefinition.getName())
                     .setHistogramColumnName(columnName);
-            TablespaceRecord tr = tablespace.createRecord(ydb.getName(), trb);
+            TablespaceRecord tr = tablespace.createMetadataRecord(ydb.getName(), trb);
             return new RdbHistogramInfo(tr.getTbsIndex(), columnName, null);                       
         } catch (RocksDBException e) {
             throw new IOException(e);

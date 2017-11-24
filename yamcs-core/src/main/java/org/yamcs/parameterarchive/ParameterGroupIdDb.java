@@ -56,11 +56,10 @@ public class ParameterGroupIdDb {
         if(pgid == null) {
             int x = ++highestPgId;
             pgid = x;
-            YRDB db = tablespace.getRdb();
             byte[] key = new byte[TBS_INDEX_SIZE+4];
             ByteArrayUtils.encodeInt(tbsIndex, key, 0);
             ByteArrayUtils.encodeInt(x, key, TBS_INDEX_SIZE);
-            db.put(key, s.encodeToVarIntArray());
+            tablespace.putData(key, s.encodeToVarIntArray());
             pg2pgidCache.put(s, pgid);
         }
         return pgid;
@@ -87,7 +86,7 @@ public class ParameterGroupIdDb {
         TablespaceRecord tr;
         if(trl.isEmpty()) {
             TablespaceRecord.Builder trb = TablespaceRecord.newBuilder().setType(TablespaceRecord.Type.PARCHIVE_PGID2PG);
-            tr = tablespace.createRecord(yamcsInstance, trb);
+            tr = tablespace.createMetadataRecord(yamcsInstance, trb);
         } else {
             tr = trl.get(0);
         }

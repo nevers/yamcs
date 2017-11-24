@@ -31,7 +31,7 @@ message TablespaceRecord {
      PARCHIVE_DATA = 5;
 
      //used to store information about the partitions of the ParameterArchive in case they are partitioned by time
-     // relevant information: instanceName
+     // relevant information: instanceName, partitioningSchema
      //there is only one record of this type for each instance and ParameterArchive
      PARCHIVE_PINFO = 6;
   }
@@ -62,5 +62,8 @@ message TablespaceRecord {
   //parameterFqn is the parameter fully qualified name (something like /system/subsystem1/subsystem2/paraName)
   optional string parameterFqn = 8;
   optional uint32 parameterType = 9;
+
+  //partitioning schema used currently for parameter archive (for tables is stored in the .def file)
+  optional string partitioningSchema = 10;
 }
 

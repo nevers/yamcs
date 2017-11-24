@@ -61,12 +61,16 @@ public class RDBFactory implements Runnable {
     public YRDB getRdb(String relativePath, boolean readonly) throws IOException {
         return rdb(relativePath, readonly);
     }
+    
+    
     /**
      * Opens or creates a database at the root dataDir
      */
     public YRDB getRdb(boolean readonly) throws IOException{
         return rdb("", readonly);
     }
+    
+    
     /**
      * use default visibility to be able to create a separate one from the unit test
      */

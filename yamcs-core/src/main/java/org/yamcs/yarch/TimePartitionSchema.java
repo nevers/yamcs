@@ -55,17 +55,6 @@ public abstract class TimePartitionSchema {
 
 
 
-    /**
-     * name for the partitioning schema (YYYY/DOY, YYYY/MM, etc)
-     * @return
-     */
-    public String getName() {
-        return name;
-    }
-
-
-
-
     static class YYYYDOY extends TimePartitionSchema {
         Pattern p = Pattern.compile("(\\d{4})/(\\d{3})");
         @Override
@@ -168,4 +157,15 @@ public abstract class TimePartitionSchema {
             return pinfo;
         }
     }
+    
+    
+
+    /**
+     * name for the partitioning schema (YYYY/DOY, YYYY/MM, etc)
+     * @return the name of the partitioning schema
+     */
+    public String getName() {
+        return name;
+    }
+
 }

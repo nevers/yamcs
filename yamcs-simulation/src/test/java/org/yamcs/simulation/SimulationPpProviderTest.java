@@ -71,7 +71,6 @@ public class SimulationPpProviderTest {
             paramSequence1.getParameter().add(parameter1);
             ppSimulation.getParameterSequence().add(paramSequence1);
             jaxbMarshaller.marshal(ppSimulation, file);
-            jaxbMarshaller.marshal(ppSimulation, System.out);
         } catch (Exception e) {
             // ASSERT
             assertFalse(e.toString(), true);
@@ -165,7 +164,6 @@ public class SimulationPpProviderTest {
         target.setSimulationData(DATA_SCENARIO_DATE);
         FakePpListener ppListener = new FakePpListener();
         target.setParameterSink(ppListener);
-        target.startAsync().awaitRunning();
         
         target.enable();
 

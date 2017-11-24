@@ -3,14 +3,12 @@ package org.yamcs.yarch;
 import static org.junit.Assert.*;
 
 import java.nio.ByteBuffer;
-import java.util.Arrays;
 import java.util.List;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
-import org.junit.runners.Parameterized.Parameters;
 @RunWith(Parameterized.class)
 public class EnumWithPartitionTest extends YarchTestCase {
     int n=10;

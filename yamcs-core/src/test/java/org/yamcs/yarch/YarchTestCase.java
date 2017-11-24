@@ -42,7 +42,7 @@ public abstract class YarchTestCase {
         } else {
             littleEndian = false;
         }
-     //   java.util.logging.Logger.getLogger("org.yamcs").setLevel(java.util.logging.Level.ALL);
+        //org.yamcs.LoggingUtils.enableLogging();
     }
 
     @Before

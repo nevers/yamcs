@@ -2,17 +2,12 @@ package org.yamcs.parameterarchive;
 
 import java.io.IOException;
 import java.io.PrintStream;
-import java.nio.ByteBuffer;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import org.rocksdb.ColumnFamilyHandle;
-import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
-import org.rocksdb.RocksIterator;
 import org.yamcs.protobuf.Yamcs.Value;
 import org.yamcs.protobuf.Yamcs.Value.Type;
 import org.yamcs.yarch.rocksdb.Tablespace;
@@ -32,13 +27,14 @@ import org.yamcs.yarch.rocksdb.protobuf.Tablespace.TablespaceRecord;
  *
  */
 public class ParameterIdDb {
-    final static int TIMESTAMP_PARA_ID=0;
     final Tablespace tablespace;
     final String yamcsInstance;
     //parameter fqn -> parameter type -> parameter id
     Map<String, Map<Integer, Integer>> p2pidCache = new HashMap<>();
-    
-    
+    //used as parameterId (tbsIndex) for the time  records
+    int timeParameterId;
+    static final String TIME_PARAMETER_FQN="__time_parameter_"; 
+
     ParameterIdDb(String yamcsInstance, Tablespace tablespace) throws RocksDBException, IOException {
         this.tablespace = tablespace;
         this.yamcsInstance = yamcsInstance;
@@ -73,7 +69,7 @@ public class ParameterIdDb {
                     .setParameterFqn(paramFqn).setParameterType(type);
             TablespaceRecord tr;
             try {
-                tr = tablespace.createRecord(yamcsInstance, trb);
+                tr = tablespace.createMetadataRecord(yamcsInstance, trb);
                 pid = tr.getTbsIndex();
                 m.put(type, pid);
             } catch (RocksDBException e) {
@@ -101,19 +97,31 @@ public class ParameterIdDb {
         return et<<16|rt;
     }
 
- 
+
     private void readDb() throws RocksDBException, IOException {
         List<TablespaceRecord> trlist = tablespace.filter(TablespaceRecord.Type.PARCHIVE_DATA, yamcsInstance, (trb)-> true);
-        for(TablespaceRecord tr: trlist) {
-            String paraName = tr.getParameterFqn();
-            int pid = tr.getTbsIndex();
-            int type = tr.getParameterType();
-            Map<Integer, Integer> m = p2pidCache.get(paraName);
-            if(m==null) {
-                m = new HashMap<>();
-                p2pidCache.put(paraName, m);
+        if(trlist.isEmpty()) {
+            //new database- create a record for the time parameter
+            TablespaceRecord.Builder trb = TablespaceRecord.newBuilder().setType(TablespaceRecord.Type.PARCHIVE_DATA)
+                    .setParameterFqn(TIME_PARAMETER_FQN);
+            TablespaceRecord tr = tablespace.createMetadataRecord(yamcsInstance, trb);
+            timeParameterId = tr.getTbsIndex();
+        } else {
+            for(TablespaceRecord tr: trlist) {
+                String paraName = tr.getParameterFqn();
+                if(TIME_PARAMETER_FQN.equals(paraName)) {
+                    timeParameterId = tr.getTbsIndex();
+                } else {
+                    int pid = tr.getTbsIndex();
+                    int type = tr.getParameterType();
+                    Map<Integer, Integer> m = p2pidCache.get(paraName);
+                    if(m==null) {
+                        m = new HashMap<>();
+                        p2pidCache.put(paraName, m);
+                    }
+                    m.put(type, pid);
+                }
             }
-            m.put(type, pid);
         }
     }
 
@@ -131,8 +139,8 @@ public class ParameterIdDb {
             for(Map.Entry<Integer, Integer> e: m.entrySet()) {
                 int parameterId = e.getValue();
                 int et = e.getKey()>>16;
-                int rt = e.getKey()&0xFFFF;
-                out.println("\t("+getType(et)+", "+getType(rt)+") -> "+parameterId);
+        int rt = e.getKey()&0xFFFF;
+        out.println("\t("+getType(et)+", "+getType(rt)+") -> "+parameterId);
             }
         }
     }

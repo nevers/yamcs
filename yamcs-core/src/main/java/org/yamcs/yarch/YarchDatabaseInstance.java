@@ -360,4 +360,8 @@ public class YarchDatabaseInstance {
     public TagDb getTagDb() throws YarchException {
         return YarchDatabase.getDefaultStorageEngine().getTagDb(this);
     }
+
+    public TimePartitionSchema getDefaultPartitioningSchema() {
+        return TimePartitionSchema.getInstance("YYYY");
+    }
 }

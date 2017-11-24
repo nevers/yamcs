@@ -11,10 +11,9 @@ import org.yamcs.yarch.rocksdb.Tablespace;
 
 
 public class ParameterGroupIdMapTest {
-
     @Test
     public void test1() throws Exception {
-        File f = new File("/tmp/TestParameterIdMap_test1");
+        File f = new File("/tmp/TestParameterGroupIdMap_test1");
         FileUtils.deleteRecursively(f.toPath());
         
         Tablespace tablespace = new Tablespace("test1", (byte) 0);
@@ -37,6 +36,7 @@ public class ParameterGroupIdMapTest {
         assertTrue(pg3 > pg1);
         
         tablespace.close();
+        
         tablespace.loadDb(false);
         pgidMap = new ParameterGroupIdDb("test1", tablespace);
         

@@ -141,7 +141,7 @@ public class TablespaceTest {
         if(bvalue!=null) {
             trb.setPartitionValue(ByteString.copyFrom(bvalue));
         }
-        TablespaceRecord tr = tablespace.createRecord(yamcsInstance, trb);
+        TablespaceRecord tr = tablespace.createMetadataRecord(yamcsInstance, trb);
         return tr;
     }
     
@@ -156,7 +156,7 @@ public class TablespaceTest {
             trb.setPartition(TimeBasedPartition.newBuilder().setPartitionDir(partitionDir));
         }
 
-        TablespaceRecord tr = tablespace.createRecord(yamcsInstance, trb);
+        TablespaceRecord tr = tablespace.createMetadataRecord(yamcsInstance, trb);
         return tr;
     }
 }

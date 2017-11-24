@@ -175,7 +175,7 @@ public class RdbStorageEngine implements StorageEngine {
         return tablespaces;
     }
 
-    private void createTablespace(String tablespaceName) {
+    public synchronized Tablespace createTablespace(String tablespaceName) {
         log.info("Creating tablespace {}", tablespaceName);
         int id = tablespaces.values().stream().mapToInt(t -> t.getId()).max().orElse(-1);
         Tablespace t = new Tablespace(tablespaceName, (byte) (id + 1));
@@ -197,6 +197,7 @@ public class RdbStorageEngine implements StorageEngine {
         }
 
         tablespaces.put(tablespaceName, t);
+        return t;
     }
 
     private Tablespace deserializeTablespace(File f) throws IOException {
