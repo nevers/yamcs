@@ -19,6 +19,7 @@ import org.yamcs.YConfiguration;
 import org.yamcs.YamcsServer;
 import org.yamcs.archive.TagDb;
 import org.yamcs.management.ManagementService;
+import org.yamcs.yarch.rocksdb.RdbStorageEngine;
 import org.yamcs.yarch.streamsql.ExecutionContext;
 import org.yamcs.yarch.streamsql.ParseException;
 import org.yamcs.yarch.streamsql.StreamSqlException;
@@ -47,6 +48,7 @@ public class YarchDatabaseInstance {
     transient Map<String, AbstractStream> streams;
     static Logger log = LoggerFactory.getLogger(YarchDatabaseInstance.class.getName());
     static YConfiguration config;
+    String tablespaceName;
 
     static {
         config = YConfiguration.getConfiguration("yamcs");
@@ -58,20 +60,34 @@ public class YarchDatabaseInstance {
     //yamcs instance name (used to be called dbname)
     private String instanceName;
 
-    YarchDatabaseInstance(String dbname) throws YarchException {
-        this.instanceName = dbname;
+    YarchDatabaseInstance(String instanceName) throws YarchException {
+        this.instanceName = instanceName;
         mngService = ManagementService.getInstance();
         tables = new HashMap<>();
         streams = new HashMap<>();
-
+        String instConfName = "yamcs."+instanceName;
+        if(YConfiguration.isDefined(instConfName)) {
+            YConfiguration instConf = YConfiguration.getConfiguration(instConfName);
+            if(instConf.containsKey("tablespace")) {
+                tablespaceName = instConf.getString("tablespace");    
+            } else {
+                tablespaceName = instanceName;
+            }
+        } else {
+            tablespaceName = instanceName;
+        }
         loadTables();
     }
 
-    public static boolean instanceExistsOnDisk(String yamcsInstance) {
-        File dir=new File(YarchDatabase.getHome()+"/"+yamcsInstance);
-        return dir.exists() && dir.isDirectory();
+    /**
+     * Tablespaces are used by {@link RdbStorageEngine} to store data.
+     * Returns the default tablespace name that is used by all tables and also the parameter archive of this yamcs instance
+     * 
+     */
+    public String getTablespaceName() {
+        return tablespaceName;
     }
-    
+   
     /**
      * 
      * @return the instance name

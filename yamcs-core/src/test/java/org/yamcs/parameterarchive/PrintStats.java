@@ -22,6 +22,5 @@ public class PrintStats {
         parchive.getParameterIdDb().print(ps1);
         ps1.close();
         ps.close();
-        parchive.closeDb();
     }
 }

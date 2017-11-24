@@ -27,16 +27,13 @@ import org.yamcs.yarch.TableWriter;
 import org.yamcs.yarch.YarchDatabase;
 import org.yamcs.yarch.TableWriter.InsertMode;
 import org.yamcs.yarch.rocksdb.RdbHistogramIterator;
+import org.yamcs.yarch.rocksdb.protobuf.Tablespace.TablespaceRecord.Type;
 import org.yaml.snakeyaml.Yaml;
 import org.yamcs.yarch.YarchDatabaseInstance;
 import org.yamcs.yarch.YarchException;
 
 /**
- * Storage Engine based on RocksDB.
- * 
- * Tables are mapped to multiple RocksDB databases - one for each time based
- * partition.
- * 
+ * Storage Engine based on RocksDB. Data is stored in multiple {@link Tablespace}
  * 
  */
 public class RdbStorageEngine implements StorageEngine {
@@ -44,7 +41,7 @@ public class RdbStorageEngine implements StorageEngine {
     Map<String, Tablespace> tablespaces = new HashMap<>();
 
     // number of bytes taken by the tbsIndex (prefix for all keys)
-    static final int TBS_INDEX_SIZE = 4;
+    public static final int TBS_INDEX_SIZE = 4;
 
     static {
         RocksDB.loadLibrary();
@@ -107,7 +104,7 @@ public class RdbStorageEngine implements StorageEngine {
             try {
                 YRDB db = tablespace.getRdb(rdbp.dir, false);
                 db.getDb().deleteRange(dbKey(tbsIndex), dbKey(tbsIndex + 1));
-                tablespace.removeTbsIndex(tbsIndex);
+                tablespace.removeTbsIndex(Type.TABLE_PARTITION, tbsIndex);
             } catch (IOException | RocksDBException e) {
                 log.error("Error when removing tbsIndex", e);
                 throw new YarchException(e);
@@ -172,6 +169,10 @@ public class RdbStorageEngine implements StorageEngine {
             createTablespace(tablespaceName);
         }
         return tablespaces.get(tablespaceName);
+    }
+    
+    public Map<String, Tablespace> getTablespaces() {
+        return tablespaces;
     }
 
     private void createTablespace(String tablespaceName) {
@@ -260,7 +261,7 @@ public class RdbStorageEngine implements StorageEngine {
         return dbKey;
     }
 
-    public Tablespace getTablespacece(String tablespaceName) {
+    public Tablespace getTablespace(String tablespaceName) {
         return tablespaces.get(tablespaceName);
     }
 

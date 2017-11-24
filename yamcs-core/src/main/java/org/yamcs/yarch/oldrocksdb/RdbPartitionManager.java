@@ -18,11 +18,10 @@ import org.yamcs.yarch.HistogramInfo;
 import org.yamcs.yarch.Partition;
 import org.yamcs.yarch.PartitionManager;
 import org.yamcs.yarch.PartitioningSpec;
-import org.yamcs.yarch.TimePartitionSchema.PartitionInfo;
-
 import org.yamcs.yarch.YarchDatabaseInstance;
 import org.yamcs.yarch.TableDefinition;
 import org.yamcs.yarch.TableDefinition.PartitionStorage;
+import org.yamcs.yarch.TimePartitionInfo;
 import org.yamcs.utils.TimeEncoding;
 
 /**
@@ -63,7 +62,7 @@ public class RdbPartitionManager extends PartitionManager {
             if(s.equals(tblName)) {
                 File currentf = new File(dataDir+"/"+dir+"/"+s+"/CURRENT");
                 if(currentf.exists()) {
-                    PartitionInfo pinfo = partitioningSpec.getTimePartitioningSchema().parseDir(dir);
+                    TimePartitionInfo pinfo = partitioningSpec.getTimePartitioningSchema().parseDir(dir);
                     try {
                         readDb(partitioningSpec, pinfo, dir);
                     } catch (Exception e) {
@@ -84,7 +83,7 @@ public class RdbPartitionManager extends PartitionManager {
      * Called at startup to read existing partitions from disk
      * @param partitioningSpec 
      */
-    private void readDb(PartitioningSpec partitioningSpec, PartitionInfo pinfo, String dir) throws RocksDBException, IOException {
+    private void readDb(PartitioningSpec partitioningSpec, TimePartitionInfo pinfo, String dir) throws RocksDBException, IOException {
         log.trace("reading partition from {} pinfo: {}", dir, pinfo);
         RDBFactory rdbFactory = RDBFactory.getInstance(ydb.getName());
         String tblName = tableDefinition.getName();
@@ -140,28 +139,28 @@ public class RdbPartitionManager extends PartitionManager {
     /** 
      * Called at startup when reading existing partitions from disk
      */
-    private void addPartitionByTime(PartitionInfo pinfo) {               
-        Interval intv = intervals.get(pinfo.partitionStart);      
+    private void addPartitionByTime(TimePartitionInfo pinfo) {               
+        Interval intv = intervals.getFit(pinfo.getStart());      
 
         if(intv==null) {            
-            intv=new Interval(pinfo.partitionStart, pinfo.partitionEnd);
-            intervals.put(pinfo.partitionStart, intv);
+            intv = new Interval(pinfo.getStart(), pinfo.getEnd());
+            intv = intervals.insert(intv);
         }
-        Partition p = new RdbPartition(pinfo.partitionStart, pinfo.partitionEnd, null, null, pinfo.dir+"/"+tableDefinition.getName());
+        Partition p = new RdbPartition(pinfo.getStart(), pinfo.getEnd(), null, null, pinfo.getDir()+"/"+tableDefinition.getName());
         intv.addTimePartition(p);
     }   
 
     /** 
      * Called at startup when reading existing partitions from disk
      */
-    private void addPartitionByTimeAndValue(PartitionInfo pinfo, Object value, byte[] binaryValue) {	   	   
-        Interval intv = intervals.get(pinfo.partitionStart);	  
+    private void addPartitionByTimeAndValue(TimePartitionInfo pinfo, Object value, byte[] binaryValue) {	   	   
+        Interval intv = intervals.getFit(pinfo.getStart());	  
 
         if(intv==null) {	    
-            intv = new Interval(pinfo.partitionStart, pinfo.partitionEnd);
-            intervals.put(pinfo.partitionStart, intv);
+            intv = new Interval(pinfo.getStart(), pinfo.getEnd());
+            intv = intervals.insert(intv);
         }
-        Partition p=new RdbPartition(pinfo.partitionStart, pinfo.partitionEnd, value, binaryValue, pinfo.dir+"/"+tableDefinition.getName());
+        Partition p=new RdbPartition(pinfo.getStart(), pinfo.getEnd(), value, binaryValue, pinfo.getDir()+"/"+tableDefinition.getName());
         intv.add(value, p);
     }	
 
@@ -182,12 +181,12 @@ public class RdbPartitionManager extends PartitionManager {
     }   
 
     @Override
-    protected Partition createPartitionByTime(PartitionInfo pinfo, Object value) throws IOException {
+    protected Partition createPartitionByTime(TimePartitionInfo pinfo, Object value) throws IOException {
         try {
             String tblName = tableDefinition.getName();
             String dataDir = tableDefinition.getDataDir();
             RDBFactory rdbFactory = RDBFactory.getInstance(ydb.getName());
-            File f= new File(dataDir+"/"+pinfo.dir+"/"+tblName);
+            File f= new File(dataDir+"/"+pinfo.getDir()+"/"+tblName);
 
             if(!f.exists()) {
                 f.mkdirs();
@@ -204,7 +203,7 @@ public class RdbPartitionManager extends PartitionManager {
             }
 
             rdbFactory.dispose(rdb);
-            return new RdbPartition(pinfo.partitionStart, pinfo.partitionEnd, value, bvalue, pinfo.dir+"/"+tableDefinition.getName());			
+            return new RdbPartition(pinfo.getStart(), pinfo.getEnd(), value, bvalue, pinfo.getDir()+"/"+tableDefinition.getName());			
         } catch (RocksDBException e) {
             log.error("Error when creating partition "+pinfo+" for value "+value+": ", e);
             throw new IOException(e);
@@ -242,7 +241,7 @@ public class RdbPartitionManager extends PartitionManager {
     }
 
     @Override
-    protected HistogramInfo createHistogramByTime(PartitionInfo pinfo, String columnName) throws IOException {
+    protected HistogramInfo createHistogramByTime(TimePartitionInfo pinfo, String columnName) throws IOException {
         return new HistogramInfo(columnName);
     }
 

@@ -50,7 +50,7 @@ public class HistogramRebuilder {
     }
 
     public CompletableFuture<Void> rebuild(TimeInterval interval) throws YarchException {
-        if(interval.hasStart()||interval.hasStop()) {
+        if(interval.hasStart()||interval.hasEnd()) {
             log.info("Rebuilding histogram for table {}/{} time interval: {}", ydb.getName(), tblDef.getName(), interval.toStringEncoded());
         } else {
             log.info("Rebuilding histogram for table {}/{}", ydb.getName(), tblDef.getName());
@@ -104,7 +104,7 @@ public class HistogramRebuilder {
     
 
     private String getWhereCondition(String timeColumnName,  TimeInterval interval) {
-        if(!interval.hasStart() && !interval.hasStop()){
+        if(!interval.hasStart() && !interval.hasEnd()){
             return "";
         }
         StringBuilder whereCnd = new StringBuilder();
@@ -112,12 +112,12 @@ public class HistogramRebuilder {
         if(interval.hasStart()) {
             long start = HistogramSegment.GROUPING_FACTOR*(interval.getStart()/HistogramSegment.GROUPING_FACTOR);
             whereCnd.append(timeColumnName+" >= "+ start);
-            if(interval.hasStop()) {
+            if(interval.hasEnd()) {
                 whereCnd.append(" and ");
             }
         }
-        if(interval.hasStop()) {
-            long stop = HistogramSegment.GROUPING_FACTOR*(1+interval.getStop()/HistogramSegment.GROUPING_FACTOR);
+        if(interval.hasEnd()) {
+            long stop = HistogramSegment.GROUPING_FACTOR*(1+interval.getEnd()/HistogramSegment.GROUPING_FACTOR);
             whereCnd.append(timeColumnName+" < "+ stop);
         }
         
@@ -139,7 +139,7 @@ public class HistogramRebuilder {
         
         while(partitionIterator.hasNext()) {
             RdbPartition p0 = (RdbPartition)partitionIterator.next().get(0);
-            if(interval.hasStop()&& p0.getStart()>interval.getStop()) {
+            if(interval.hasEnd()&& p0.getStart()>interval.getEnd()) {
                 break;
             }
             log.debug("Removing existing histogram for partition {}", p0.dir);
@@ -148,7 +148,7 @@ public class HistogramRebuilder {
             long pend = p0.getEnd()/HistogramSegment.GROUPING_FACTOR;
             
             long kstart = interval.hasStart()? Math.max(interval.getStart()/HistogramSegment.GROUPING_FACTOR,pstart):pstart;
-            long kend = interval.hasStop()? Math.min(interval.getStop()/HistogramSegment.GROUPING_FACTOR, pend):pend;
+            long kend = interval.hasEnd()? Math.min(interval.getEnd()/HistogramSegment.GROUPING_FACTOR, pend):pend;
             
             YRDB rdb = rdbf.getRdb(tblDef.getDataDir()+"/"+p0.dir, false);
             for(String colName: tblDef.getHistogramColumns()) {

@@ -9,17 +9,21 @@ import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.RocksDB;
 import org.yamcs.protobuf.Yamcs.Value;
 import org.yamcs.utils.FileUtils;
+import org.yamcs.yarch.rocksdb.Tablespace;
 
 public class ParameterIdMapTest {
 
     @Test
     public void test1() throws Exception {
+        Tablespace tablespace = new Tablespace("test1", (byte) 0);
+        tablespace.loadDb(false);
+        
         File f = new File("/tmp/TestParameterIdMap_test1");
         FileUtils.deleteRecursively(f.toPath());
         RocksDB db = RocksDB.open(f.getAbsolutePath());
         ColumnFamilyHandle cfh =  db.getDefaultColumnFamily();
         
-        ParameterIdDb pidMap = new ParameterIdDb(db, cfh);
+        ParameterIdDb pidMap = new ParameterIdDb("test1", tablespace);
         int p1 = pidMap.createAndGet("/test1/bla", Value.Type.BOOLEAN);
         int p2 = pidMap.createAndGet("/test1/bla", Value.Type.BOOLEAN);
         assertEquals(p1, p2);
@@ -32,9 +36,7 @@ public class ParameterIdMapTest {
         
         db.close();
         
-        db = RocksDB.open(f.getAbsolutePath());
-        cfh =  db.getDefaultColumnFamily();
-        pidMap = new ParameterIdDb(db, cfh);
+        pidMap = new ParameterIdDb("test1", tablespace);
         int p4 = pidMap.createAndGet("/test1/bla", Value.Type.BOOLEAN);
         assertEquals(p1, p4);
         int p5 = pidMap.createAndGet("/test1/bla", Value.Type.DOUBLE);

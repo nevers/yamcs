@@ -1,9 +1,11 @@
 package org.yamcs.parameterarchive;
 
+import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -13,6 +15,8 @@ import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import org.yamcs.protobuf.Yamcs.Value;
 import org.yamcs.protobuf.Yamcs.Value.Type;
+import org.yamcs.yarch.rocksdb.Tablespace;
+import org.yamcs.yarch.rocksdb.protobuf.Tablespace.TablespaceRecord;
 
 /**
  * Stores a map between
@@ -28,17 +32,16 @@ import org.yamcs.protobuf.Yamcs.Value.Type;
  *
  */
 public class ParameterIdDb {
-    final RocksDB db;
-    final ColumnFamilyHandle p2pid_cfh;
     final static int TIMESTAMP_PARA_ID=0;
-
+    final Tablespace tablespace;
+    final String yamcsInstance;
     //parameter fqn -> parameter type -> parameter id
     Map<String, Map<Integer, Integer>> p2pidCache = new HashMap<>();
-    int highestParaId = TIMESTAMP_PARA_ID;
-
-    ParameterIdDb(RocksDB db, ColumnFamilyHandle p2pid_cfh) {
-        this.db = db;
-        this.p2pid_cfh = p2pid_cfh;
+    
+    
+    ParameterIdDb(String yamcsInstance, Tablespace tablespace) throws RocksDBException, IOException {
+        this.tablespace = tablespace;
+        this.yamcsInstance = yamcsInstance;
         readDb();
     }
 
@@ -66,9 +69,16 @@ public class ParameterIdDb {
         }
         Integer pid = m.get(type);
         if(pid==null) {
-            pid = ++highestParaId;
-            m.put(type, pid);
-            store(paramFqn);
+            TablespaceRecord.Builder trb = TablespaceRecord.newBuilder().setType(TablespaceRecord.Type.PARCHIVE_DATA)
+                    .setParameterFqn(paramFqn).setParameterType(type);
+            TablespaceRecord tr;
+            try {
+                tr = tablespace.createRecord(yamcsInstance, trb);
+                pid = tr.getTbsIndex();
+                m.put(type, pid);
+            } catch (RocksDBException e) {
+                throw new ParameterArchiveException("Cannot store key for new parameter id", e);
+            }
         }
         return pid;
     }
@@ -91,44 +101,19 @@ public class ParameterIdDb {
         return et<<16|rt;
     }
 
-    private void store(String paramFqn) throws ParameterArchiveException {
-        Map<Integer, Integer> m = p2pidCache.get(paramFqn);
-        byte[] key = paramFqn.getBytes(StandardCharsets.UTF_8);
-        ByteBuffer bb = ByteBuffer.allocate(8*m.size());
-        for(Map.Entry<Integer, Integer> me:m.entrySet()) {
-            bb.putInt(me.getKey());
-            bb.putInt(me.getValue());
-        }
-        try {
-            db.put(p2pid_cfh, key, bb.array());
-        } catch (RocksDBException e) {
-            throw new ParameterArchiveException("Cannot store key for new parameter id", e);
-        }
-    }
-
-
-    private void readDb() {
-        try(RocksIterator it = db.newIterator(p2pid_cfh)) {
-            it.seekToFirst();
-            while(it.isValid()) {
-                byte[] pfqn = it.key();
-                byte[] pIdTypeList = it.value();
-
-                String paraName = new String(pfqn, StandardCharsets.UTF_8);
-                Map<Integer, Integer> m = new HashMap<Integer, Integer>();
-
+ 
+    private void readDb() throws RocksDBException, IOException {
+        List<TablespaceRecord> trlist = tablespace.filter(TablespaceRecord.Type.PARCHIVE_DATA, yamcsInstance, (trb)-> true);
+        for(TablespaceRecord tr: trlist) {
+            String paraName = tr.getParameterFqn();
+            int pid = tr.getTbsIndex();
+            int type = tr.getParameterType();
+            Map<Integer, Integer> m = p2pidCache.get(paraName);
+            if(m==null) {
+                m = new HashMap<>();
                 p2pidCache.put(paraName, m);
-                ByteBuffer bb = ByteBuffer.wrap(pIdTypeList);
-                while(bb.hasRemaining()) {
-                    int type = bb.getInt();
-                    int pid = bb.getInt();            
-                    m.put(type, pid);
-                    if(pid > highestParaId) {
-                        highestParaId = pid;
-                    }
-                }
-                it.next();
             }
+            m.put(type, pid);
         }
     }
 

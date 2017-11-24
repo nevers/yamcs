@@ -57,8 +57,8 @@ public class YamcsArchiveIndexReceiver implements ArchiveIndexReceiver {
                 if(interval.hasStart()) {
                     resource.append("start="+TimeEncoding.toString(interval.getStart()));
                 }
-                if(interval.hasStop()) {
-                    resource.append("&stop="+TimeEncoding.toString(interval.getStop()));
+                if(interval.hasEnd()) {
+                    resource.append("&stop="+TimeEncoding.toString(interval.getEnd()));
                 }
 
                 Future<Void> f = restClient.doBulkGetRequest(resource.toString(), new BulkRestDataReceiver() {
@@ -102,8 +102,8 @@ public class YamcsArchiveIndexReceiver implements ArchiveIndexReceiver {
                 if(interval.hasStart()) {
                     resource.append("start="+TimeEncoding.toString(interval.getStart()));
                 }
-                if(interval.hasStop()) {
-                    resource.append("&stop="+TimeEncoding.toString(interval.getStop()));
+                if(interval.hasEnd()) {
+                    resource.append("&stop="+TimeEncoding.toString(interval.getEnd()));
                 }
 
                 Future<byte[]> f = restClient.doRequest(resource.toString(), HttpMethod.GET);

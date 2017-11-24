@@ -3,14 +3,15 @@ package org.yamcs.parameterarchive;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
 import java.util.concurrent.Future;
 
-import org.rocksdb.ColumnFamilyHandle;
 import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import org.rocksdb.WriteBatch;
@@ -21,35 +22,49 @@ import org.yamcs.ConfigurationException;
 import org.yamcs.YConfiguration;
 import org.yamcs.YamcsServer;
 import org.yamcs.time.TimeService;
+import org.yamcs.utils.ByteArrayUtils;
 import org.yamcs.utils.DatabaseCorruptionException;
 import org.yamcs.utils.DecodingException;
+import org.yamcs.utils.PartitionedTimeInterval;
 import org.yamcs.utils.TimeEncoding;
+import org.yamcs.utils.TimeInterval;
+import org.yamcs.yarch.TimePartitionInfo;
+import org.yamcs.yarch.TimePartitionSchema;
 import org.yamcs.yarch.YarchDatabase;
-import org.yamcs.yarch.oldrocksdb.RDBFactory;
+import org.yamcs.yarch.YarchDatabaseInstance;
+import org.yamcs.yarch.rocksdb.AscendingRangeIterator;
+import org.yamcs.yarch.rocksdb.RdbStorageEngine;
+import org.yamcs.yarch.rocksdb.Tablespace;
 import org.yamcs.yarch.oldrocksdb.StringColumnFamilySerializer;
-import org.yamcs.yarch.oldrocksdb.YRDB;
+import org.yamcs.yarch.rocksdb.YRDB;
+import org.yamcs.yarch.rocksdb.protobuf.Tablespace.TablespaceRecord;
+import org.yamcs.yarch.rocksdb.protobuf.Tablespace.TimeBasedPartition;
+import org.yamcs.yarch.streamsql.NotSupportedException;
 
 import com.google.common.util.concurrent.AbstractService;
+import static org.yamcs.yarch.rocksdb.RdbStorageEngine.TBS_INDEX_SIZE;
 
 public class ParameterArchive  extends AbstractService {
-    static final String CF_NAME_META_P2PID = "meta_p2pid";
-    static final String CF_NAME_META_PGID2PG = "meta_pgid2pg"; 
     static final String CF_NAME_DATA_PREFIX = "data_";
 
     public static final boolean STORE_RAW_VALUES = true; 
-    
+
     private final Logger log = LoggerFactory.getLogger(ParameterArchive.class);
     private ParameterIdDb parameterIdMap;
     private ParameterGroupIdDb parameterGroupIdMap;
-    YRDB yrdb;
+    private Tablespace tablespace;
 
-    ColumnFamilyHandle p2pid_cfh;
-    ColumnFamilyHandle pgid2pg_cfh;
+    //if partitioned by time the spec specifies which schema to use (e.g. YYYY or YYYY/DOY)
+    TimePartitionSchema partitioningSchema;
+    //the tbsIndex used to encode partition information
+    //even if it's not partitioned by time, we still store one partition
+    int partitionTbsIndex;
 
     private final String yamcsInstance;
-    private TreeMap<Long, Partition> partitions = new TreeMap<>();
+
+    private PartitionedTimeInterval<Partition> partitions = new PartitionedTimeInterval<>();
     SegmentEncoderDecoder vsEncoder = new SegmentEncoderDecoder();
-    
+
 
     final TimeService timeService;
     private BackFiller backFiller;
@@ -59,15 +74,29 @@ public class ParameterArchive  extends AbstractService {
     public ParameterArchive(String instance, Map<String, Object> args) throws IOException, RocksDBException {
         this.yamcsInstance = instance;
         this.timeService = YamcsServer.getTimeService(instance);
-        String dbpath = YarchDatabase.getInstance(instance).getRoot() +"/ParameterArchive";
-        File f = new File(dbpath+"/IDENTITY");
-        if(f.exists()) {
-            openExistingDb(dbpath);
-        } else {
-            createDb(dbpath);
+        YarchDatabaseInstance ydb = YarchDatabase.getInstance(instance);
+        tablespace = RdbStorageEngine.getInstance().getTablespace(ydb.getTablespaceName());
+
+        TablespaceRecord.Type trType = TablespaceRecord.Type.PARCHIVE_PINFO;
+        List<TablespaceRecord> trl = tablespace.filter(trType, yamcsInstance, trb-> true);
+        if(trl.size()>1) {
+            throw new DatabaseCorruptionException("More than one tablespace record of type "
+                    +trType.name()+" for instance "+instance);
         }
-        parameterIdMap = new ParameterIdDb(yrdb.getDb(), p2pid_cfh);
-        parameterGroupIdMap = new ParameterGroupIdDb(yrdb.getDb(), pgid2pg_cfh);
+        parameterIdMap = new ParameterIdDb(yamcsInstance, tablespace);
+        parameterGroupIdMap = new ParameterGroupIdDb(yamcsInstance, tablespace);
+
+        TablespaceRecord tr;
+        if(trl.isEmpty()) { //new database
+            TablespaceRecord.Builder trb = TablespaceRecord.newBuilder().setType(trType);
+            tr = tablespace.createRecord(yamcsInstance, trb);
+            partitionTbsIndex = tr.getTbsIndex();
+
+        } else {
+            tr = trl.get(0);
+            partitionTbsIndex = tr.getTbsIndex();
+            readPartitions();
+        }
 
         if(args!=null) {
             processConfig(args);
@@ -106,42 +135,21 @@ public class ParameterArchive  extends AbstractService {
         }
     }
 
-    private void createDb(String dbpath) throws RocksDBException, IOException {
-        log.info("Creating new ParameterArchive RocksDb at {}", dbpath);
-        yrdb = RDBFactory.getInstance(yamcsInstance).getRdb(dbpath, false);
-        p2pid_cfh = yrdb.createColumnFamily(CF_NAME_META_P2PID);
-        pgid2pg_cfh = yrdb.createColumnFamily(CF_NAME_META_PGID2PG);
-    }
+    private void readPartitions() throws IOException, RocksDBException {
+        YRDB db= tablespace.getRdb();
+        byte[] range = new byte[TBS_INDEX_SIZE];
+        ByteArrayUtils.encodeInt(partitionTbsIndex, range, 0);
 
-    private void openExistingDb(String dbpath) throws IOException {
-        log.info("Opening existing ParameterArchive RocksDb at {}", dbpath);
-        yrdb = RDBFactory.getInstance(yamcsInstance).getRdb(dbpath, false);
-
-        p2pid_cfh = yrdb.getColumnFamilyHandle(CF_NAME_META_P2PID);
-        pgid2pg_cfh = yrdb.getColumnFamilyHandle(CF_NAME_META_PGID2PG);
-
-        Collection<String> l = yrdb.getColumnFamiliesAsStrings();
-        for(String o: l) {
-            String cn = (String)o;
-            if(cn.startsWith(CF_NAME_DATA_PREFIX)) {
-                long partitionId = decodePartitionId(CF_NAME_DATA_PREFIX, cn);
-                Partition p = partitions.get(partitionId);
+        try(AscendingRangeIterator it = new AscendingRangeIterator(db.newIterator(), range, false, range, false)) {
+            while(it.isValid()) {
+                TimeBasedPartition tbp = TimeBasedPartition.parseFrom(it.value());
+                Partition p = new Partition(tbp.getPartitionStart(), tbp.getPartitionEnd(), tbp.getPartitionDir());
+                p = partitions.insert(p, 0);
                 if(p==null) {
-                    p = new Partition(partitionId);
-                    partitions.put(partitionId, p);
+                    throw new DatabaseCorruptionException("Partition "+p+" overlaps with existing partitions");
                 }
-                p.dataCfh = yrdb.getColumnFamilyHandle(o);
-            } else if(!"default".equals(cn) && !CF_NAME_META_P2PID.equals(cn) && !CF_NAME_META_PGID2PG.equals(cn)){
-                log.warn("Unknown column family '{}'", cn);
             }
         }
-
-        if(p2pid_cfh==null) {
-            throw new ParameterArchiveException("Cannot find column family '"+CF_NAME_META_P2PID+"' in database at "+dbpath);
-        }
-        if(pgid2pg_cfh==null) {
-            throw new ParameterArchiveException("Cannot find column family '"+CF_NAME_META_PGID2PG+"' in database at "+dbpath);
-        }      
     }
 
     static long decodePartitionId(String prefix, String cfname) {
@@ -161,38 +169,39 @@ public class ParameterArchive  extends AbstractService {
     }
 
 
-    /**
-     * used from unit tests to force closing the database
-     */
-    void closeDb() {
-        RDBFactory.getInstance(yamcsInstance).close(yrdb);
-    }
-
     public String getYamcsInstance() {
         return yamcsInstance;
     }
+    
+    public void writeToArchive(PGSegment pgs) throws RocksDBException, IOException {
+        Partition p = createAndGetPartition(pgs.getSegmentStart());
+        try (WriteBatch writeBatch = new WriteBatch();
+                WriteOptions wo = new WriteOptions()) {
+            writeToBatch(writeBatch, p, pgs);
+            tablespace.getRdb(p.partitionDir, false).getDb().write(wo, writeBatch);
+        }
+    }
 
-    public void writeToArchive(Collection<PGSegment> pgList) throws RocksDBException {
+
+    public void writeToArchive(long segStart, Collection<PGSegment> pgList) throws RocksDBException, IOException {
+        Partition p = createAndGetPartition(segStart);
         try (WriteBatch writeBatch = new WriteBatch();
                 WriteOptions wo = new WriteOptions()) {
 
             for(PGSegment pgs: pgList) {
-                writeToBatch(writeBatch, pgs);
+                assert(segStart==pgs.getSegmentStart());
+                writeToBatch(writeBatch, p, pgs);
             }
-            yrdb.getDb().write(wo, writeBatch);
+            tablespace.getRdb(p.partitionDir, false).getDb().write(wo, writeBatch);
         }
     }
 
-    private void writeToBatch(WriteBatch writeBatch, PGSegment pgs) throws RocksDBException {
-        long segStart = pgs.getSegmentStart();
-        long partitionId = Partition.getPartitionId(segStart);
-        Partition p = createAndGetPartition(partitionId);
-
+    private void writeToBatch(WriteBatch writeBatch, Partition p, PGSegment pgs) throws RocksDBException {
         //write the time segment
         SortedTimeSegment timeSegment = pgs.getTimeSegment();
         byte[] timeKey = new SegmentKey(ParameterIdDb.TIMESTAMP_PARA_ID, pgs.getParameterGroupId(), pgs.getSegmentStart(), SegmentKey.TYPE_ENG_VALUE).encode();
         byte[] timeValue = vsEncoder.encode(timeSegment);
-        writeBatch.put(p.dataCfh, timeKey, timeValue);
+        writeBatch.put(timeKey, timeValue);
 
         //and then the consolidated value segments
         List<BaseSegment> consolidated = pgs.getConsolidatedValueSegments();
@@ -209,7 +218,7 @@ public class ParameterArchive  extends AbstractService {
             }
             byte[] engKey = new SegmentKey(parameterId, pgs.getParameterGroupId(), pgs.getSegmentStart(), SegmentKey.TYPE_ENG_VALUE).encode();
             byte[] engValue = vsEncoder.encode(vs);
-            writeBatch.put(p.dataCfh, engKey, engValue);
+            writeBatch.put(engKey, engValue);
 
             if(STORE_RAW_VALUES && consolidatedRawValues!=null) {
                 BaseSegment rvs = consolidatedRawValues.get(i);
@@ -220,7 +229,7 @@ public class ParameterArchive  extends AbstractService {
                     }
                     byte[] rawKey = new SegmentKey(parameterId, pgs.getParameterGroupId(), pgs.getSegmentStart(), SegmentKey.TYPE_RAW_VALUE).encode();
                     byte[] rawValue = vsEncoder.encode(rvs);
-                    writeBatch.put(p.dataCfh, rawKey, rawValue);
+                    writeBatch.put(rawKey, rawValue);
 
                 }
             }
@@ -231,7 +240,7 @@ public class ParameterArchive  extends AbstractService {
             }
             byte[] pssKey = new SegmentKey(parameterId, pgs.getParameterGroupId(), pgs.getSegmentStart(), SegmentKey.TYPE_PARAMETER_STATUS).encode();
             byte[] pssValue = vsEncoder.encode(pss);
-            writeBatch.put(p.dataCfh, pssKey, pssValue);
+            writeBatch.put(pssKey, pssValue);
         }
     }
 
@@ -242,14 +251,14 @@ public class ParameterArchive  extends AbstractService {
      * @return
      * @throws RocksDBException 
      */
-    private Partition createAndGetPartition(long partitionId) throws RocksDBException {
+    private Partition createAndGetPartition(long segStart) throws RocksDBException {        
         synchronized(partitions) {
-            Partition p = partitions.get(partitionId);
+            Partition p = partitions.getFit(segStart);
             if(p==null) {
-                p = new Partition(partitionId);
-                String cfname = CF_NAME_DATA_PREFIX + Long.toHexString(partitionId);
-                p.dataCfh = yrdb.createColumnFamily(cfname);
-                partitions.put(partitionId, p);
+                TimePartitionInfo pinfo = partitioningSchema.getPartitionInfo(segStart);
+                p = new Partition(pinfo.getStart(), pinfo.getEnd(), pinfo.getDir());
+                p = partitions.insert(p, 60000L);
+                assert p!=null;
             }
             return p;
         }
@@ -268,75 +277,22 @@ public class ParameterArchive  extends AbstractService {
      * a copy of the partitions from start to stop inclusive
      * @param startPartitionId
      * @param stopPartitionId
-     * @return a navigable map of partitions sorted by their id
+     * @return a sorted list of partitions 
      */
-    public NavigableMap<Long, Partition> getPartitions(long startPartitionId, long stopPartitionId) {
-        if((startPartitionId& Partition.TIMESTAMP_MASK) != 0) {
-            throw new IllegalArgumentException(startPartitionId+" is not a valid partition id");
+    public List<Partition> getPartitions(long start, long stop, boolean ascending) {
+        List<Partition> r = new ArrayList<>();
+        Iterator<Partition> it;
+        if(ascending) {
+            it = partitions.overlappingIterator(new TimeInterval(start, stop));
+        } else {
+            it = partitions.overlappingReverseIterator(new TimeInterval(start, stop));
         }
-        if((stopPartitionId& Partition.TIMESTAMP_MASK) != 0) {
-            throw new IllegalArgumentException(stopPartitionId+" is not a valid partition id");
+        while(it.hasNext()) {
+            r.add(it.next());
         }
-
-        synchronized(partitions) {
-            TreeMap<Long, Partition> r = new TreeMap<>();
-            r.putAll(partitions.subMap(startPartitionId, true, stopPartitionId, true));
-            return r;
-        }
+        return r;
     }
 
-    static class Partition {
-        public static final int NUMBITS_MASK=31; //2^31 millisecons =~ 24 days per partition    
-        public static final long TIMESTAMP_MASK = (0xFFFFFFFF>>>(32-NUMBITS_MASK));
-        public static final long PARTITION_MASK = ~TIMESTAMP_MASK;
-
-        final long partitionId;
-        ColumnFamilyHandle dataCfh;
-
-        Partition(long partitionId) {
-            this.partitionId = partitionId;
-        }        
-
-
-        static long getPartitionId(long instant) {
-            return instant & PARTITION_MASK;
-        }
-
-        static long getPartitionStart(long instant) {
-            return getPartitionId(instant);
-        }
-
-        public static long getPartitionEnd(long partitionId) {
-            return partitionId  | TIMESTAMP_MASK;
-        }
-
-        public String toString() {
-            return "partition: ["+TimeEncoding.toString(partitionId)+" - "+TimeEncoding.toString(getPartitionEnd(partitionId))+"]";
-        }
-    }
-
-    public RocksIterator getIterator(Partition p) {
-        return yrdb.getDb().newIterator(p.dataCfh);
-    }
-
-    public SortedTimeSegment getTimeSegment(Partition p, long segmentStart,  int parameterGroupId) throws RocksDBException {
-        byte[] timeKey = new SegmentKey(ParameterIdDb.TIMESTAMP_PARA_ID, parameterGroupId, segmentStart, SegmentKey.TYPE_ENG_VALUE).encode();
-        byte[] tv = yrdb.getDb().get(p.dataCfh, timeKey);
-        if(tv==null) {
-            return null;
-        }
-        try {
-            return (SortedTimeSegment) vsEncoder.decode(tv, segmentStart);
-        } catch (DecodingException e) {
-            throw new DatabaseCorruptionException(e);
-        }
-    }
-
-    Partition getPartitions(long partitionId) {
-        synchronized(partitions) {
-            return partitions.get(partitionId);
-        }
-    }
 
     @Override
     protected void doStart() {
@@ -360,21 +316,14 @@ public class ParameterArchive  extends AbstractService {
         if(realtimeFiller!=null) {
             realtimeFiller.stop();
         }
-        RDBFactory.getInstance(yamcsInstance).dispose(yrdb);
         notifyStopped();
     }
 
 
-    public void printStats(PrintStream out)  throws RocksDBException{
-        for(Partition p:partitions.values()) {
-            out.println("---------- Partition starting at "+TimeEncoding.toString(p.partitionId)+" -------------");
-            out.println(yrdb.getDb().getProperty(p.dataCfh, "rocksdb.stats"));
-        }
-    }
-    public void printKeys(PrintStream out) throws DecodingException {
+    public void printKeys(PrintStream out) throws DecodingException, RocksDBException, IOException {
         out.println("pid\t pgid\t type\tSegmentStart\tcount\tsize\tstype");
         SegmentEncoderDecoder decoder = new SegmentEncoderDecoder();
-        for(Partition p:partitions.values()) {
+        for(Partition p:partitions) {
             try(RocksIterator it = getIterator(p)) {
                 it.seekToFirst();
                 while(it.isValid()) {
@@ -396,15 +345,62 @@ public class ParameterArchive  extends AbstractService {
      * @throws RocksDBException 
      * @return all the partitions removed
      */
-    public NavigableMap<Long, Partition> deletePartitions(long start, long stop) throws RocksDBException {
-        long startPartitionId = Partition.getPartitionId(start);
-        long stopPartitionId = Partition.getPartitionId(stop);
-        NavigableMap<Long, Partition> parts = getPartitions(startPartitionId, stopPartitionId);
-        for(Partition p: parts.values()) {
-            yrdb.dropColumnFamily(p.dataCfh);
-            partitions.remove(p.partitionId);
+    public List<Partition> deletePartitions(long start, long stop) throws RocksDBException {
+        //List<Partition> parts = getPartitions(start, stop, true);
+        throw new UnsupportedOperationException("operation not supported");
+    }
+
+
+    public RocksIterator getIterator(Partition p) throws RocksDBException, IOException {
+        return tablespace.getRdb(p.partitionDir, false).newIterator();
+    }
+
+    public SortedTimeSegment getTimeSegment(Partition p, long segmentStart,  int parameterGroupId) throws RocksDBException, IOException {
+        byte[] timeKey = new SegmentKey(ParameterIdDb.TIMESTAMP_PARA_ID, parameterGroupId, segmentStart, SegmentKey.TYPE_ENG_VALUE).encode();
+        byte[] tv = tablespace.getRdb(p.partitionDir, false).get(timeKey);
+        if(tv==null) {
+            return null;
+        }
+        try {
+            return (SortedTimeSegment) vsEncoder.decode(tv, segmentStart);
+        } catch (DecodingException e) {
+            throw new DatabaseCorruptionException(e);
+        }
+    }
+
+    Partition getPartitions(long partitionId) {
+        synchronized(partitions) {
+            return partitions.getFit(partitionId);
+        }
+    }
+
+    static class Partition extends TimeInterval {
+        public static final int NUMBITS_MASK=31; //2^31 millisecons =~ 24 days per partition    
+        public static final long TIMESTAMP_MASK = (0xFFFFFFFF>>>(32-NUMBITS_MASK));
+        public static final long PARTITION_MASK = ~TIMESTAMP_MASK;
+
+        final String partitionDir;
+
+        Partition(long start, long end, String dir) {
+            super(start, end);
+            this.partitionDir = dir;
+        }        
+
+
+        static long getPartitionId(long instant) {
+            return instant & PARTITION_MASK;
         }
 
-        return parts;
+        static long getPartitionStart(long instant) {
+            return getPartitionId(instant);
+        }
+
+        public static long getPartitionEnd(long partitionId) {
+            return partitionId  | TIMESTAMP_MASK;
+        }
+
+        public String toString() {
+            return "partition: "+partitionDir+"["+TimeEncoding.toString(getStart())+" - "+TimeEncoding.toString(getPartitionEnd(getEnd()))+"]";
+        }
     }
 }

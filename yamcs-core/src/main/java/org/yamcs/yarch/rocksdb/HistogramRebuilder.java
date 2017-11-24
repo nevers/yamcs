@@ -28,6 +28,7 @@ import org.yamcs.yarch.TableWriter.InsertMode;
 import org.yamcs.yarch.Tuple;
 import org.yamcs.yarch.YarchDatabaseInstance;
 import org.yamcs.yarch.YarchException;
+import org.yamcs.yarch.rocksdb.protobuf.Tablespace.TablespaceRecord.Type;
 import org.yamcs.yarch.streamsql.ParseException;
 import org.yamcs.yarch.streamsql.StreamSqlException;
 
@@ -58,7 +59,7 @@ public class HistogramRebuilder {
     }
 
     public CompletableFuture<Void> rebuild(TimeInterval interval) throws YarchException {
-        if(interval.hasStart()||interval.hasStop()) {
+        if(interval.hasStart()||interval.hasEnd()) {
             log.info("Rebuilding histogram for table {}/{} time interval: {}", ydb.getName(), tblDef.getName(), interval.toStringEncoded());
         } else {
             log.info("Rebuilding histogram for table {}/{}", ydb.getName(), tblDef.getName());
@@ -112,7 +113,7 @@ public class HistogramRebuilder {
     
 
     private String getWhereCondition(String timeColumnName,  TimeInterval interval) {
-        if(!interval.hasStart() && !interval.hasStop()){
+        if(!interval.hasStart() && !interval.hasEnd()){
             return "";
         }
         StringBuilder whereCnd = new StringBuilder();
@@ -120,12 +121,12 @@ public class HistogramRebuilder {
         if(interval.hasStart()) {
             long start = HistogramSegment.GROUPING_FACTOR*(interval.getStart()/HistogramSegment.GROUPING_FACTOR);
             whereCnd.append(timeColumnName+" >= "+ start);
-            if(interval.hasStop()) {
+            if(interval.hasEnd()) {
                 whereCnd.append(" and ");
             }
         }
-        if(interval.hasStop()) {
-            long stop = HistogramSegment.GROUPING_FACTOR*(1+interval.getStop()/HistogramSegment.GROUPING_FACTOR);
+        if(interval.hasEnd()) {
+            long stop = HistogramSegment.GROUPING_FACTOR*(1+interval.getEnd()/HistogramSegment.GROUPING_FACTOR);
             whereCnd.append(timeColumnName+" < "+ stop);
         }
         
@@ -148,6 +149,6 @@ public class HistogramRebuilder {
                 a.add(((RdbHistogramInfo)hi).tbsIndex);
             }
         }
-        tablespace.removeTbsIndices(a);
+        tablespace.removeTbsIndices(Type.HISTOGRAM, a);
     }
 }

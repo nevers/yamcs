@@ -119,7 +119,7 @@ public class TagsTest extends YarchTestCase {
         
         if(k2!=-1){
             stop=tags.get(k2).getStop();
-            intv.setStop(tags.get(k2).getStop());
+            intv.setEnd(tags.get(k2).getStop());
         }
         
         final long lo = start;

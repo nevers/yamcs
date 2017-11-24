@@ -2,7 +2,7 @@ package org.yamcs.parameterarchive;
 
 
 import java.util.Arrays;
-import java.util.NavigableMap;
+import java.util.List;
 
 import org.rocksdb.RocksDBException;
 import org.yamcs.YamcsServer;
@@ -74,12 +74,16 @@ public class ParameterArchiveMaintenanceRestHandler extends RestHandler {
         
         ParameterArchive parchive = getParameterArchive(instance);
         try {
-            NavigableMap<Long, Partition> removed = parchive.deletePartitions(start, stop);
+            List<Partition> removed = parchive.deletePartitions(start, stop);
             StringBuilder sb = new StringBuilder();
             sb.append("removed the following partitions: ");
             boolean first = true;
-            for(Partition p: removed.values()) {
-                if(first) first= false; else sb.append(", ");
+            for(Partition p: removed) {
+                if(first) {
+                    first= false;
+                } else {
+                   sb.append(", ");
+                }
                 sb.append(p.toString());
             }
             StringMessage sm = StringMessage.newBuilder().setMessage(sb.toString()).build();

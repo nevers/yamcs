@@ -28,6 +28,7 @@ import org.yamcs.cli.Backup;
  * @author nm
  *
  */
+@Deprecated
 public class RDBFactory implements Runnable {
     HashMap<String, DbAndAccessTime> databases=new HashMap<>();
 

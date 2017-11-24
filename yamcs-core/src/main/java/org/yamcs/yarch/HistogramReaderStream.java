@@ -92,11 +92,11 @@ public class HistogramReaderStream extends AbstractStream implements Runnable, D
                 return true;
             case LESS:
             case LESS_OR_EQUAL:
-                interval.setStop(time);
+                interval.setEnd(time);
                 return true;
             case EQUAL:
                 interval.setStart(time);
-                interval.setStop(time);
+                interval.setEnd(time);
                 return true;
             case NOT_EQUAL:
                 //TODO - two ranges have to be created

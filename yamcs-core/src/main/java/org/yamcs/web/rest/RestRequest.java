@@ -501,7 +501,7 @@ public class RestRequest {
                 intv.setStart(start);
             }
             if (hasStop()) {
-                intv.setStop(stop);
+                intv.setEnd(stop);
             }
             return intv;
         }

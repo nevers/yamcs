@@ -66,13 +66,12 @@ class RdbHistogramIterator implements Iterator<HistogramRecord> {
         }
 
         PartitionManager.Interval intv = intervalIterator.next();
-
+        
         if (rdb != null) {
             tablespace.dispose(rdb);
         }
 
         RdbHistogramInfo hist = (RdbHistogramInfo) intv.getHistogram(colName);
-    
 
         if(hist==null) {
             readNextPartition();
@@ -86,10 +85,10 @@ class RdbHistogramIterator implements Iterator<HistogramRecord> {
 
         boolean strictEnd;
         byte[] dbKeyStop;
-        if (interval.hasStop()) {
+        if (interval.hasEnd()) {
             strictEnd = false;
             dbKeyStop = ByteArrayUtils.encodeInt(hist.tbsIndex, new byte[12], 0);
-            long segStop = segmentStart(interval.getStop());
+            long segStop = segmentStart(interval.getEnd());
             ByteArrayUtils.encodeLong(segStop, dbKeyStop, TBS_INDEX_SIZE);
         } else {
             dbKeyStop = ByteArrayUtils.encodeInt(hist.tbsIndex + 1, new byte[12], 0);
@@ -154,7 +153,7 @@ class RdbHistogramIterator implements Iterator<HistogramRecord> {
             if ((interval.hasStart()) && (stop < interval.getStart())) {
                 continue;
             }
-            if ((interval.hasStop()) && (start > interval.getStop())) {
+            if ((interval.hasEnd()) && (start > interval.getEnd())) {
                 if (r != null) {
                     records.add(r);
                 }

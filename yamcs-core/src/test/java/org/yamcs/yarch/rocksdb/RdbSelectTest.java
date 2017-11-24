@@ -131,8 +131,6 @@ public class RdbSelectTest extends YarchTestCase {
         Stream s3 = ydb.getStream("s3");
         tuples = fetchTuples(s3);
         
-        System.out.println("tuples: "+tuples);
-        
         assertEquals(2, tuples.size());
         assertEquals(2000L, tuples.get(0).getColumn("gentime"));
         assertEquals(1000L, tuples.get(1).getColumn("gentime"));

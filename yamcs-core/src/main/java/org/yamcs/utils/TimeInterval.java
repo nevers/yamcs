@@ -10,34 +10,40 @@ import org.yamcs.utils.TimeEncoding;
  *  
  **/
 public class TimeInterval {
-    private long start, stop;
+    private long start;
+    private long end;
     private boolean hasStart = false;
-    private boolean hasStop = false;
+    private boolean hasEnd = false;
 
-    public TimeInterval(long start, long stop) {
+    public TimeInterval(long start, long end) {
         setStart(start);
-        setStop(stop);
+        setEnd(end);
     }
     /**
-     * Creates a TimeInterval with no start and no stop
+     * Creates a TimeInterval with no start and no end
      */
     public TimeInterval() {
     }
     /**
-     * creates a TimeInterval with no start but with an stop
+     * creates a TimeInterval with no start but with an end
      */
-    public static TimeInterval openStart(long stop) {
+    public static TimeInterval openStart(long end) {
         TimeInterval ti = new TimeInterval();
-        ti.setStop(stop);
+        ti.setEnd(end);
         return ti;
     }
-
+    public static TimeInterval openEnd(long start) {
+        TimeInterval ti = new TimeInterval();
+        ti.setStart(start);
+        return ti;
+    }
+    
     public boolean hasStart() {
         return hasStart;
     }
 
-    public boolean hasStop() {
-        return hasStop;
+    public boolean hasEnd() {
+        return hasEnd;
     }
     public void setStart(long start) {
         hasStart = true;
@@ -48,29 +54,29 @@ public class TimeInterval {
         return start;
     }
 
-    public void setStop(long stop) {
-        hasStop = true;
-        this.stop = stop;
+    public void setEnd(long end) {
+        hasEnd = true;
+        this.end = end;
     }
 
-    public long getStop() {
-        return stop;
+    public long getEnd() {
+        return end;
     }
     
     /**
-     * Checks that [this.start, this.stop) contains t
+     * Checks that [this.start, this.end) contains t
      */
-    boolean contains0(long t) {
-        return !((hasStart && t<start) || (hasStop && t>=stop)); 
+    public boolean contains0(long t) {
+        return !((hasStart && t<start) || (hasEnd && t>=end)); 
     }
     
     /**
-     * Checks that [this.start, this.stop] overlaps with [t1.start, t1.stop)
+     * Checks that [this.start, this.end] overlaps with [t1.start, t1.end)
      * 
      */
     boolean overlaps1(TimeInterval t1) {
-        return !((t1.hasStart && hasStop && t1.start>stop) ||
-                 (t1.hasStop && hasStart && start>=t1.stop)); 
+        return !((t1.hasStart && hasEnd && t1.start>end) ||
+                 (t1.hasEnd && hasStart && start>=t1.end)); 
     }
 
 
@@ -82,8 +88,8 @@ public class TimeInterval {
             sb.append(start);
         }
         sb.append(",");
-        if(hasStop) {
-            sb.append(stop);
+        if(hasEnd) {
+            sb.append(end);
         }
         sb.append(")");
         return sb.toString();
@@ -96,8 +102,8 @@ public class TimeInterval {
             sb.append(TimeEncoding.toString(start));
         }
         sb.append(",");
-        if(hasStop) {
-            sb.append(TimeEncoding.toString(stop));
+        if(hasEnd) {
+            sb.append(TimeEncoding.toString(end));
         }
         sb.append(")");
         return sb.toString();
@@ -117,8 +123,8 @@ public class TimeInterval {
          * Creates a new Interator that iterates the elements of inputIterator and outputs only those 
          * that overalp with timeInterval.
          * 
-         * The timeInterval is considered closed at both ends [start, stop] whereas the elements of the 
-         * inputIterator are considered closed at start but open at stop [start, stop)
+         * The timeInterval is considered closed at both ends [start, end] whereas the elements of the 
+         * inputIterator are considered closed at start but open at end [start, end)
          * 
          * The inputIterator is assumed to contain elements sorted by the start. 
          * 
@@ -153,7 +159,7 @@ public class TimeInterval {
         private void getNext() {
             if (it.hasNext()) {
                 next = it.next();
-                if(timeInterval.hasStop() && next.hasStart() && timeInterval.getStop()<next.getStart()) {
+                if(timeInterval.hasEnd() && next.hasStart() && timeInterval.getEnd()<next.getStart()) {
                     next = null;
                 }
             } else {
@@ -161,4 +167,7 @@ public class TimeInterval {
             }
         }
     }
+
+
+    
 }

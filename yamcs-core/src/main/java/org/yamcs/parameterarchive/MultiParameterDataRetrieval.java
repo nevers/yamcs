@@ -1,10 +1,11 @@
 package org.yamcs.parameterarchive;
 
+import java.io.IOException;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.NavigableMap;
 import java.util.PriorityQueue;
 import java.util.TreeMap;
 import java.util.function.Consumer;
@@ -33,24 +34,21 @@ public class MultiParameterDataRetrieval {
         this.mpvr = mpvr;
     }
 
-    public void retrieve(Consumer<ParameterIdValueList> consumer) throws RocksDBException, DecodingException {
+    public void retrieve(Consumer<ParameterIdValueList> consumer) throws RocksDBException, DecodingException, IOException {
         long startPartitionId = Partition.getPartitionId(mpvr.start);
         long stopPartitionId = Partition.getPartitionId(mpvr.stop);
         count = 0;
         try {
-            NavigableMap<Long, Partition> parts = parchive.getPartitions(startPartitionId, stopPartitionId);
-            if(!mpvr.ascending) {
-                parts = parts.descendingMap();
-            }
-            for(Partition p: parts.values()) {
+            List<Partition> parts = parchive.getPartitions(startPartitionId, stopPartitionId, mpvr.ascending);
+            for(Partition p: parts) {
                 retrieveFromPartition(p, consumer);
-            }
+            } 
         } catch (ConsumerAbortException e) {
             log.debug("Stoped early due to receiving ConsumerAbortException");
         }
     }
 
-    private void retrieveFromPartition(Partition p, Consumer<ParameterIdValueList> consumer) throws RocksDBException, DecodingException {
+    private void retrieveFromPartition(Partition p, Consumer<ParameterIdValueList> consumer) throws RocksDBException, DecodingException, IOException {
         RocksIterator[] its = new RocksIterator[mpvr.parameterIds.length];
         Map<PartitionIterator, String> partition2ParameterName = new HashMap<>();
         PriorityQueue<PartitionIterator> queue = new PriorityQueue<PartitionIterator>(new PartitionIteratorComparator(mpvr.ascending));

@@ -39,7 +39,7 @@ public class YRDB {
     private boolean isClosed = false;
     private final String path;
     private final ColumnFamilyOptions cfoptions;
-    
+    static final String ROCKS_PROP_NUM_KEYS = "rocksdb.estimate-num-keys";
     //keep track
     int refcount = 0;
     long lastAccessTime;
@@ -196,7 +196,7 @@ public class YRDB {
         final List<String> slprops = Arrays.asList("rocksdb.num-immutable-mem-table",  "rocksdb.num-immutable-mem-table-flushed"
                 , "rocksdb.mem-table-flush-pending",  "rocksdb.num-running-flushes" , "rocksdb.compaction-pending", "rocksdb.num-running-compactions", "rocksdb.background-errors",  "rocksdb.cur-size-active-mem-table"
                 , "rocksdb.cur-size-all-mem-tables", "rocksdb.size-all-mem-tables", "rocksdb.num-entries-active-mem-table",  "rocksdb.num-entries-imm-mem-tables"
-                , "rocksdb.num-deletes-active-mem-table",  "rocksdb.num-deletes-imm-mem-tables", "rocksdb.estimate-num-keys", "rocksdb.estimate-table-readers-mem"
+                , "rocksdb.num-deletes-active-mem-table",  "rocksdb.num-deletes-imm-mem-tables", ROCKS_PROP_NUM_KEYS, "rocksdb.estimate-table-readers-mem"
                 , "rocksdb.is-file-deletions-enabled" ,  "rocksdb.num-snapshots","rocksdb.oldest-snapshot-time" ,  "rocksdb.num-live-versions"
                 , "rocksdb.current-super-version-number", "rocksdb.estimate-live-data-size", "rocksdb.base-level");
         
@@ -280,5 +280,12 @@ public class YRDB {
             it.close();
             return l;
         } 
+    }
+
+    public long getApproxNumRecords() throws RocksDBException {
+        return db.getLongProperty(ROCKS_PROP_NUM_KEYS);
+    }
+    public long getApproxNumRecords(ColumnFamilyHandle cfh) throws RocksDBException {
+        return db.getLongProperty(cfh, ROCKS_PROP_NUM_KEYS);
     }
 }

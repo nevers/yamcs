@@ -106,13 +106,14 @@ public class RDBFactory implements Runnable {
                 }
             }
             String absolutePath = dataDir + "/" + relativePath;
-            log.info("Creating or opening RDB "+absolutePath+" total rdb open: "+databases.size());
+            log.debug("Creating or opening RDB {}  total rdb open: {}", absolutePath, databases.size());
             try {
                 db = new YRDB(absolutePath, readonly);
+                log.debug("Opened {} with approximatively {} records", absolutePath, db.getApproxNumRecords());
             } catch (RocksDBException e) {
                 throw new IOException(e);
             }
-
+            
 
             databases.put(relativePath, db);
         }
@@ -183,10 +184,17 @@ public class RDBFactory implements Runnable {
             db.close();
         }		
     }
-
+    
+    /**
+     * Get the root database if it's open, otherwise return null
+     * 
+     */
+    public YRDB getOpenRdb() {
+        return getOpenRdb("");
+    }
     /**
      * Get the database which is already open or null if it is not open
-     * @param absolutePath the absoulte path of the database to be returned
+     * @param relativePath path of the database to be returned
      * @return the database object
      */
     public synchronized YRDB getOpenRdb(String relativePath) {
@@ -213,6 +221,14 @@ public class RDBFactory implements Runnable {
         yrdb.close();
     }
 
+    /**
+     * Performs backup of the root database to a given directory
+     * @param backupDir
+     * @return a future that can be used to know when the backup has finished and if there was any error
+     */
+    public CompletableFuture<Void> doBackup(String backupDir) {
+        return doBackup("", backupDir);
+    }
     /**
      * Performs a backup of the database to the given directory
      * 

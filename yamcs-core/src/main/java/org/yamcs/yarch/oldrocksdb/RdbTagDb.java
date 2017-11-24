@@ -80,7 +80,7 @@ public class RdbTagDb implements TagDb {
         //first we read all the records without start, then we jump to reqStart-maxDistance
         while(hasNext) {
             ArchiveTag tag = ArchiveTag.parseFrom(it.value());
-            if(intv.hasStop() && tag.hasStart() && intv.getStop()<tag.getStart()) break;
+            if(intv.hasEnd() && tag.hasStart() && intv.getEnd()<tag.getStart()) break;
             if(intv.hasStart() && tag.hasStop() && tag.getStop()<intv.getStart()) {
                 it.next();
                 hasNext = it.isValid();

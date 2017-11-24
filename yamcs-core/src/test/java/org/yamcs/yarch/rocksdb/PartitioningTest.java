@@ -40,7 +40,7 @@ public class PartitioningTest extends YarchTestCase {
 
         TableDefinition tdef = ydb.getTable("test1");
         RdbStorageEngine storageEngine = (RdbStorageEngine) ydb.getStorageEngine(tdef);
-        Tablespace tablespace = storageEngine.getTablespacece(instance);
+        Tablespace tablespace = storageEngine.getTablespace(instance);
 
         assertTrue(tdef.hasPartitioning());
         RdbPartitionManager pmgr = storageEngine.getPartitionManager(tdef);
@@ -176,7 +176,7 @@ public class PartitioningTest extends YarchTestCase {
         ydb.execute("insert into testdp select * from tm_in");
         Stream tm_in=ydb.getStream("tm_in");
         TupleDefinition tpdef=tm_in.getDefinition();
-        Tablespace tablespace = RdbStorageEngine.getInstance().getTablespacece(instance);
+        Tablespace tablespace = RdbStorageEngine.getInstance().getTablespace(instance);
 
         instant[0]=TimeEncoding.parse("1999-06-21T07:03:00");
         Tuple t11=new Tuple(tpdef, new Object[] {instant[0], 1, "part1", new byte[1000]});
@@ -215,7 +215,6 @@ public class PartitioningTest extends YarchTestCase {
         assertEquals((short)1, pvalues[1]);
 
         File f = new File(tablespace.getDataDir()+"/1999/172");
-        System.out.println("f: "+f);
         assertTrue(f.exists());
 
         instant[3]=TimeEncoding.parse("2001-01-01T00:00:00");

@@ -42,7 +42,7 @@ public abstract class YarchTestCase {
         } else {
             littleEndian = false;
         }
-        java.util.logging.Logger.getLogger("org.yamcs").setLevel(java.util.logging.Level.ALL);
+     //   java.util.logging.Logger.getLogger("org.yamcs").setLevel(java.util.logging.Level.ALL);
     }
 
     @Before
@@ -55,7 +55,7 @@ public abstract class YarchTestCase {
         if (YarchDatabase.hasInstance(instance)) {
             YarchDatabase.removeInstance(instance);
             RdbStorageEngine rse = RdbStorageEngine.getInstance();
-            if (rse.getTablespacece(instance) != null) {
+            if (rse.getTablespace(instance) != null) {
                 rse.dropTablespace(instance);
             }
         }

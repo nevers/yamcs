@@ -7,17 +7,12 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.NavigableMap;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentSkipListMap;
-import org.yamcs.utils.TimeInterval.FilterOverlappingIterator;
-
+import org.yamcs.utils.PartitionedTimeInterval;
 import org.yamcs.utils.TimeEncoding;
 import org.yamcs.utils.TimeInterval;
 import org.yamcs.yarch.PartitioningSpec._type;
-import org.yamcs.yarch.TimePartitionSchema.PartitionInfo;
 
 /**
  * Keeps track of partitions and histograms for one table.
@@ -44,7 +39,7 @@ public abstract class PartitionManager {
     final protected TableDefinition tableDefinition;
     final protected PartitioningSpec partitioningSpec;
 
-    protected NavigableMap<Long, Interval> intervals = new ConcurrentSkipListMap<>();
+    protected PartitionedTimeInterval<Interval> intervals = new PartitionedTimeInterval<>();
     // pcache is a cache of the last interval where data has been inserted
     // in case of value based partition, it is basically the list of all
     // partitions
@@ -56,7 +51,7 @@ public abstract class PartitionManager {
         if (partitioningSpec.type == _type.NONE || partitioningSpec.type == _type.VALUE) {
             // pcache never changes in this case
             pcache = new Interval();
-            intervals.put(TimeEncoding.MIN_INSTANT, pcache);
+            intervals.insert(pcache);
         }
     }
 
@@ -73,9 +68,7 @@ public abstract class PartitionManager {
      * @return iterator going over partitions
      */
     public Iterator<List<Partition>> iterator(Set<Object> partitionValueFilter) {
-        Iterator<Entry<Long, Interval>> it = intervals.entrySet().iterator();
-        PartitionIterator pi = new PartitionIterator(partitioningSpec, it, partitionValueFilter, false);
-        return pi;
+        return  new PartitionIterator(partitioningSpec, intervals.iterator(), partitionValueFilter, false);
     }
 
     /**
@@ -85,9 +78,7 @@ public abstract class PartitionManager {
      * @return
      */
     public Iterator<List<Partition>> reverseIterator(Set<Object> partitionValueFilter) {
-        Iterator<Entry<Long, Interval>> it = intervals.descendingMap().entrySet().iterator();
-        PartitionIterator pi = new PartitionIterator(partitioningSpec, it, partitionValueFilter, true);
-        return pi;
+        return new PartitionIterator(partitioningSpec, intervals.reverseIterator(), partitionValueFilter, true);
     }
 
     /**
@@ -103,19 +94,11 @@ public abstract class PartitionManager {
      * 
      */
     public Iterator<List<Partition>> iterator(long start, Set<Object> partitionValueFilter) {
-        Iterator<Entry<Long, Interval>> it = intervals.entrySet().iterator();
-        PartitionIterator pi = new PartitionIterator(partitioningSpec, it, partitionValueFilter, false);
+        PartitionIterator pi = new PartitionIterator(partitioningSpec, intervals.iterator(), partitionValueFilter, false);
         pi.jumpToStart(start);
         return pi;
     }
 
-    public Iterator<Interval> intervalIterator(long start) {
-        return intervals.tailMap(start, true).values().iterator();
-    }
-
-    public Iterator<Interval> intervalIterator() {
-        return intervals.values().iterator();
-    }
 
     /**
      * Iterates over all intervals overlapping with the timeInterval.
@@ -127,12 +110,11 @@ public abstract class PartitionManager {
      * 
      */
     public Iterator<Interval> intervalIterator(TimeInterval timeInterval) {
-        return new FilterOverlappingIterator<>(timeInterval, intervals.values().iterator());
+        return intervals.overlappingIterator(timeInterval);
     }
 
     public Iterator<List<Partition>> reverseIterator(long start, Set<Object> partitionValueFilter) {
-        Iterator<Entry<Long, Interval>> it = intervals.descendingMap().entrySet().iterator();
-        PartitionIterator pi = new PartitionIterator(partitioningSpec, it, partitionValueFilter, true);
+        PartitionIterator pi = new PartitionIterator(partitioningSpec, intervals.reverseIterator(), partitionValueFilter, true);
         pi.jumpToStart(start);
         return pi;
     }
@@ -159,33 +141,25 @@ public abstract class PartitionManager {
     public synchronized Partition createAndGetPartition(long instant, Object value) throws IOException {
         Partition partition;
         Interval tmpInterval = pcache;
-        boolean newlyCreated = false;
 
-        if (partitioningSpec.timeColumn != null) {
-            if ((tmpInterval == null) || (tmpInterval.getStart() > instant) || (tmpInterval.getStop() <= instant)) {
-
-                Entry<Long, Interval> entry = intervals.floorEntry(instant);
-                if ((entry != null) && (instant < entry.getValue().getStop())) {
-                    tmpInterval = entry.getValue();
-                } else {// no partition in this interval.
-                    PartitionInfo pinfo = partitioningSpec.getTimePartitioningSchema().getPartitionInfo(instant);
-                    tmpInterval = new Interval(pinfo.partitionStart, pinfo.partitionEnd);
-                    newlyCreated = true;
-                }
+        if ((partitioningSpec.timeColumn != null) &&
+                ((tmpInterval == null) || (!tmpInterval.contains0(instant)))) {
+            tmpInterval = intervals.getFit(instant);
+            if(tmpInterval==null) {
+                TimePartitionInfo pinfo = partitioningSpec.getTimePartitioningSchema().getPartitionInfo(instant);
+                tmpInterval = intervals.insert(new Interval(pinfo.getStart(), pinfo.getEnd()), 60000L);
+                assert tmpInterval!=null;
             }
         }
         partition = tmpInterval.get(value);
         if (partition == null) {
             if (partitioningSpec.timeColumn != null) {
-                PartitionInfo pinfo = partitioningSpec.getTimePartitioningSchema().getPartitionInfo(instant);
+                TimePartitionInfo pinfo = partitioningSpec.getTimePartitioningSchema().getPartitionInfo(instant);
                 partition = createPartitionByTime(pinfo, value);
             } else {
                 partition = createPartition(value);
             }
             tmpInterval.add(value, partition);
-        }
-        if (newlyCreated) {
-            intervals.put(tmpInterval.getStart(), tmpInterval);
         }
         pcache = tmpInterval;
 
@@ -196,32 +170,25 @@ public abstract class PartitionManager {
         HistogramInfo histo;
         Interval tmpInterval = pcache;
         boolean newlyCreated = false;
-        if (partitioningSpec.timeColumn != null) {
-            if ((tmpInterval == null) || (tmpInterval.getStart() > instant) || (tmpInterval.getStop() <= instant)) {
-
-                Entry<Long, Interval> entry = intervals.floorEntry(instant);
-                if ((entry != null) && (instant < entry.getValue().getStop())) {
-                    tmpInterval = entry.getValue();
-                } else {// no partition in this interval.
-                    PartitionInfo pinfo = partitioningSpec.getTimePartitioningSchema().getPartitionInfo(instant);
-                    tmpInterval = new Interval(pinfo.partitionStart, pinfo.partitionEnd);
-                    newlyCreated = true;
-                }
+        if ((partitioningSpec.timeColumn != null) &&
+                ((tmpInterval == null) || (!tmpInterval.contains0(instant)))) {
+            tmpInterval = intervals.getFit(instant);
+            if(tmpInterval==null) {
+                TimePartitionInfo pinfo = partitioningSpec.getTimePartitioningSchema().getPartitionInfo(instant);
+                tmpInterval = intervals.insert(new Interval(pinfo.getStart(), pinfo.getEnd()), 60000L);
+                assert tmpInterval!=null;
             }
         }
 
         histo = tmpInterval.getHistogram(columnName);
         if (histo == null) {
             if (partitioningSpec.timeColumn != null) {
-                PartitionInfo pinfo = partitioningSpec.getTimePartitioningSchema().getPartitionInfo(instant);
+                TimePartitionInfo pinfo = partitioningSpec.getTimePartitioningSchema().getPartitionInfo(instant);
                 histo = createHistogramByTime(pinfo, columnName);
             } else {
                 histo = createHistogram(columnName);
             }
             tmpInterval.addHistogram(columnName, histo);
-        }
-        if (newlyCreated) {
-            intervals.put(tmpInterval.getStart(), tmpInterval);
         }
         pcache = tmpInterval;
         return histo;
@@ -260,7 +227,7 @@ public abstract class PartitionManager {
      * @return
      * @throws IOException
      */
-    protected abstract Partition createPartitionByTime(PartitionInfo pinfo, Object value) throws IOException;
+    protected abstract Partition createPartitionByTime(TimePartitionInfo pinfo, Object value) throws IOException;
 
     /**
      * Create a partition for value based partitioning
@@ -271,7 +238,7 @@ public abstract class PartitionManager {
      */
     protected abstract Partition createPartition(Object value) throws IOException;
 
-    protected abstract HistogramInfo createHistogramByTime(PartitionInfo pinfo, String columnName) throws IOException;
+    protected abstract HistogramInfo createHistogramByTime(TimePartitionInfo pinfo, String columnName) throws IOException;
 
     protected abstract HistogramInfo createHistogram(String columnName) throws IOException;
 
@@ -282,7 +249,7 @@ public abstract class PartitionManager {
      */
     public List<Partition> getPartitions() {
         List<Partition> plist = new ArrayList<>();
-        for (Interval interval : intervals.values()) {
+        for (Interval interval : intervals) {
             plist.addAll(interval.partitions.values());
         }
         return plist;
@@ -293,7 +260,7 @@ public abstract class PartitionManager {
      *
      */
     public static class Interval extends TimeInterval {
-     // we use this as a key in the ConcurrentHashMap in case value is null (i.e. time only partitioning)
+        // we use this as a key in the ConcurrentHashMap in case value is null (i.e. time only partitioning)
         static final Object NON_NULL = new Object(); 
 
         Map<Object, Partition> partitions = new ConcurrentHashMap<>();
@@ -357,8 +324,8 @@ public abstract class PartitionManager {
 
         @Override
         public String toString() {
-            return "[" + TimeEncoding.toString(getStart()) + "(" + getStart() + ") - " + TimeEncoding.toString(getStop()) + "(" + getStop()
-                    + ")] values: " + partitions;
+            return "[" + TimeEncoding.toString(getStart()) + "(" + getStart() + ") - " + TimeEncoding.toString(getEnd()) + "(" + getEnd()
+            + ")] values: " + partitions;
         }
 
         public Collection<HistogramInfo> removeHistograms() {

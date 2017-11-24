@@ -66,7 +66,7 @@ public class YarchDatabase {
 
     }
     static Map<String, YarchDatabaseInstance> databases = new HashMap<>();
-
+    
     /**
      * 
      * @param yamcsInstance

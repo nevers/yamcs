@@ -1,7 +1,8 @@
 package org.yamcs.parameterarchive;
 
+import java.io.IOException;
 import java.lang.reflect.Array;
-import java.util.NavigableMap;
+import java.util.List;
 import java.util.PriorityQueue;
 import java.util.function.Consumer;
 
@@ -26,20 +27,17 @@ public class SingleParameterDataRetrieval {
 
 
 
-    public void retrieve(Consumer<ParameterValueArray> consumer) throws RocksDBException {
+    public void retrieve(Consumer<ParameterValueArray> consumer) throws RocksDBException, IOException {
         long startPartition = Partition.getPartitionId(spvr.start);
         long stopPartition = Partition.getPartitionId(spvr.stop);
 
-        NavigableMap<Long,Partition> parts = parchive.getPartitions(startPartition, stopPartition);
-        if(!spvr.ascending) {
-            parts = parts.descendingMap();
-        }
+        List<Partition> parts = parchive.getPartitions(startPartition, stopPartition, spvr.ascending);
         if(spvr.parameterGroupIds.length==1) {
-            for(Partition p:parts.values()) {
+            for(Partition p:parts) {
                 retrieveValuesFromPartitionSingleGroup(p, consumer);
             }
         } else {
-            for(Partition p:parts.values()) {
+            for(Partition p:parts) {
                 retrieveValuesFromPartitionMultiGroup(p, consumer);
             }
         }
@@ -47,7 +45,7 @@ public class SingleParameterDataRetrieval {
 
 
     //this is the easy case, one single parameter group -> no merging of segments necessary
-    private void retrieveValuesFromPartitionSingleGroup(Partition p, Consumer<ParameterValueArray> consumer) throws RocksDBException {
+    private void retrieveValuesFromPartitionSingleGroup(Partition p, Consumer<ParameterValueArray> consumer) throws RocksDBException, IOException {
         int parameterGroupId = spvr.parameterGroupIds[0];
         RocksIterator it = parchive.getIterator(p);
         boolean retrieveEng = spvr.retrieveRawValues |  spvr.retrieveEngineeringValues;
@@ -73,7 +71,7 @@ public class SingleParameterDataRetrieval {
     }
 
     //multiple parameter groups -> merging of segments necessary
-    private void retrieveValuesFromPartitionMultiGroup(Partition p, Consumer<ParameterValueArray> consumer) throws RocksDBException {
+    private void retrieveValuesFromPartitionMultiGroup(Partition p, Consumer<ParameterValueArray> consumer) throws RocksDBException, IOException {
         RocksIterator[] its = new RocksIterator[spvr.parameterGroupIds.length];
         try {
 

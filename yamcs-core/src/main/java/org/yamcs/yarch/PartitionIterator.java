@@ -3,7 +3,6 @@ package org.yamcs.yarch;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map.Entry;
 import java.util.Set;
 
 import org.yamcs.yarch.PartitionManager.Interval;
@@ -11,14 +10,14 @@ import org.yamcs.yarch.PartitioningSpec._type;
 
 public class PartitionIterator implements Iterator<List<Partition>> {
     final PartitioningSpec partitioningSpec;
-    final Iterator<Entry<Long,Interval>> it;
+    final Iterator<Interval> it;
     final Set<Object> partitionValueFilter;
     List<Partition> next;
     boolean reverse;
     long start;
     boolean jumpToStart=false;
 
-    PartitionIterator(PartitioningSpec partitioningSpec, Iterator<Entry<Long,Interval>> it, Set<Object> partitionFilter, boolean reverse) {
+    PartitionIterator(PartitioningSpec partitioningSpec, Iterator<Interval> it, Set<Object> partitionFilter, boolean reverse) {
         this.partitioningSpec = partitioningSpec;
         this.it = it;
         this.partitionValueFilter = partitionFilter;
@@ -38,9 +37,8 @@ public class PartitionIterator implements Iterator<List<Partition>> {
         }
         next = new ArrayList<>();
         while(it.hasNext()) {
-            Entry<Long,Interval> entry = it.next();
-            Interval intv = entry.getValue();
-            if((!reverse && jumpToStart && intv.hasStop() && intv.getStop()<=start) ||
+            Interval intv = it.next();
+            if((!reverse && jumpToStart && intv.hasEnd() && intv.getEnd()<=start) ||
                 (reverse && jumpToStart && intv.hasStart() && intv.getStart()>=start)) {
                 continue;
             } else {

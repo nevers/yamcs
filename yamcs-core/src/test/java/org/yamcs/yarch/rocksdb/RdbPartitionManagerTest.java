@@ -73,7 +73,7 @@ public class RdbPartitionManagerTest {
 
     @Test
     public void createAndIteratePartitions() throws Exception {
-        Tablespace tablespace = new Tablespace("test", (byte)1);
+        Tablespace tablespace = new Tablespace("test", (byte)0);
         String tmpdir = Files.createTempDir().getAbsolutePath();
         tablespace.setCustomDataDir(tmpdir);
         

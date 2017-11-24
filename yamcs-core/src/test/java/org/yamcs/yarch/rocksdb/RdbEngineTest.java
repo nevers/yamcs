@@ -91,7 +91,6 @@ public class RdbEngineTest extends YarchTestCase {
 
         rse.loadTablespaces(false);
         rse.loadTable(ydb, tblDef);
-
         iter = rse.getHistogramIterator(ydb, tblDef, "name", interval, 0);
         assertNumElementsEqual(iter, 3);
 

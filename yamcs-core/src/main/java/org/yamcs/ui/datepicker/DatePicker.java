@@ -90,7 +90,7 @@ public final class DatePicker extends JPanel {
             ti.setStart(TimeEncoding.fromCalendar(calStart));
         }
         if(calEnd!=null) {
-            ti.setStop(TimeEncoding.fromCalendar(calEnd));
+            ti.setEnd(TimeEncoding.fromCalendar(calEnd));
         }
         return ti;
     }

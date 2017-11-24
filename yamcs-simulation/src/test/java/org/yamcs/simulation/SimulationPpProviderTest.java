@@ -158,15 +158,9 @@ public class SimulationPpProviderTest {
 
         // Arrange
         SimulationPpProvider target = new SimulationPpProvider() {
-<<<<<<< HEAD
-        /*    public boolean IsRunning() {
-                return true;
-            }*/
-=======
             protected boolean stop() {
                 return false;
             }
->>>>>>> master
         };
         target.setSimulationData(DATA_SCENARIO_DATE);
         FakePpListener ppListener = new FakePpListener();

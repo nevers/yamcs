@@ -8,11 +8,16 @@ import org.slf4j.LoggerFactory;
 import org.yamcs.yarch.HistogramInfo;
 import org.yamcs.yarch.Partition;
 import org.yamcs.yarch.PartitionManager;
-import org.yamcs.yarch.TimePartitionSchema.PartitionInfo;
 import org.yamcs.yarch.oldrocksdb.ColumnValueSerializer;
 import org.yamcs.yarch.YarchDatabaseInstance;
 import org.yamcs.yarch.rocksdb.protobuf.Tablespace.TablespaceRecord;
+import org.yamcs.yarch.rocksdb.protobuf.Tablespace.TablespaceRecord.Type;
+import org.yamcs.yarch.rocksdb.protobuf.Tablespace.TimeBasedPartition;
+
+import com.google.protobuf.ByteString;
+
 import org.yamcs.yarch.TableDefinition;
+import org.yamcs.yarch.TimePartitionInfo;
 
 /**
  * Handles partitions for one table. All partitions are stored as records in the tablespace.
@@ -37,61 +42,60 @@ public class RdbPartitionManager extends PartitionManager {
     public void readPartitions() throws RocksDBException, IOException {
         ColumnValueSerializer cvs = new ColumnValueSerializer(tableDefinition);
         for(TablespaceRecord tr: tablespace.getTablePartitions(ydb.getName(), tableDefinition.getName())) {
-            if(tr.hasPartitionValue()) {
-                if(tr.hasPartitionDir()) {
-                    PartitionInfo pinfo = partitioningSpec.getTimePartitioningSchema().parseDir(tr.getPartitionDir());
+            if(tr.hasPartitionValue()) {                
+                if(tr.hasPartition()) {
+                    TimePartitionInfo pinfo = partitioningSpec.getTimePartitioningSchema().parseDir(tr.getPartition().getPartitionDir());
                     addPartitionByTimeAndValue(tr.getTbsIndex(), pinfo, cvs.byteArrayToObject(tr.getPartitionValue().toByteArray()));
                 } else {
                     addPartitionByValue(tr.getTbsIndex(), cvs.byteArrayToObject(tr.getPartitionValue().toByteArray()));
                 }
             } else {
-                if(tr.hasPartitionDir()) {
-                    PartitionInfo pinfo = partitioningSpec.getTimePartitioningSchema().parseDir(tr.getPartitionDir());
-                    addPartitionByTime(tr.getTbsIndex(), pinfo);
+                if(tr.hasPartition()) {
+                    addPartitionByTime(tr.getTbsIndex(), tr.getPartition());
                 } else {
                     addPartitionByNone(tr.getTbsIndex());
                 }
             }
         }
-        
+
         for(TablespaceRecord tr: tablespace.getTableHistograms(ydb.getName(), tableDefinition.getName())) {
-            if(tr.hasPartitionDir()) {
-                PartitionInfo pinfo = partitioningSpec.getTimePartitioningSchema().parseDir(tr.getPartitionDir());
-                addHistogramByTime(tr, pinfo);
+            if(tr.hasPartition()) {                
+                addHistogramByTime(tr);
             } else {
                 addHistogramByNone(tr);
             }
         }
     }
 
-   
+
     /** 
      * Called at startup when reading existing partitions from disk
      */
-    private void addPartitionByTime(int tbsIndex, PartitionInfo pinfo) {               
-        Interval intv = intervals.get(pinfo.partitionStart);      
+    private void addPartitionByTime(int tbsIndex, TimeBasedPartition tbp) {               
+        Interval intv = intervals.getFit(tbp.getPartitionStart());      
 
         if(intv==null) {            
-            intv=new Interval(pinfo.partitionStart, pinfo.partitionEnd);
-            intervals.put(pinfo.partitionStart, intv);
+            intv = new Interval(tbp.getPartitionStart(), tbp.getPartitionEnd());
+            intv = intervals.insert(intv);
         }
-        Partition p = new RdbPartition(tbsIndex, pinfo.partitionStart, pinfo.partitionEnd, null, pinfo.dir);
+        Partition p = new RdbPartition(tbsIndex, tbp.getPartitionStart(), tbp.getPartitionEnd(), null, tbp.getPartitionDir());
         intv.addTimePartition(p);
     }
     /**
      * Called at startup when reading existing histograms
      */
-    private void addHistogramByTime(TablespaceRecord tr, PartitionInfo pinfo) {
-        Interval intv = intervals.get(pinfo.partitionStart);      
+    private void addHistogramByTime(TablespaceRecord tr) {
+        TimeBasedPartition tbp = tr.getPartition();
+        Interval intv = intervals.getFit(tbp.getPartitionStart());      
 
         if(intv==null) {            
-            intv=new Interval(pinfo.partitionStart, pinfo.partitionEnd);
-            intervals.put(pinfo.partitionStart, intv);
+            intv = new Interval(tbp.getPartitionStart(), tbp.getPartitionEnd());
+            intv = intervals.insert(intv);
         }
-        RdbHistogramInfo hinfo = new RdbHistogramInfo(tr.getTbsIndex(), tr.getHistogramColumnName(), tr.getPartitionDir());
+        RdbHistogramInfo hinfo = new RdbHistogramInfo(tr.getTbsIndex(), tr.getHistogramColumnName(), tbp.getPartitionDir());
         intv.addHistogram(tr.getHistogramColumnName(), hinfo);
     }
-    
+
     /**
      * Called at startup when reading existing histograms
      */
@@ -103,14 +107,14 @@ public class RdbPartitionManager extends PartitionManager {
     /** 
      * Called at startup when reading existing partitions from disk
      */
-    private void addPartitionByTimeAndValue(int tbsIndex, PartitionInfo pinfo, Object value) {	   	   
-        Interval intv = intervals.get(pinfo.partitionStart);	  
+    private void addPartitionByTimeAndValue(int tbsIndex, TimePartitionInfo pinfo, Object value) {	   	   
+        Interval intv = intervals.getFit(pinfo.getStart());	  
 
         if(intv==null) {	    
-            intv = new Interval(pinfo.partitionStart, pinfo.partitionEnd);
-            intervals.put(pinfo.partitionStart, intv);
+            intv = new Interval(pinfo.getStart(), pinfo.getEnd());
+            intv = intervals.insert(intv);
         }
-        Partition p = new RdbPartition(tbsIndex, pinfo.partitionStart, pinfo.partitionEnd, value, pinfo.dir);
+        Partition p = new RdbPartition(tbsIndex, pinfo.getStart(), pinfo.getEnd(), value, pinfo.getDir());
         intv.add(value, p);
     }	
 
@@ -131,19 +135,26 @@ public class RdbPartitionManager extends PartitionManager {
     }   
 
     @Override
-    protected Partition createPartitionByTime(PartitionInfo pinfo, Object value) throws IOException {
+    protected Partition createPartitionByTime(TimePartitionInfo pinfo, Object value) throws IOException {
         byte[] bvalue = null;
         if(value!=null) {
             ColumnValueSerializer cvs = new ColumnValueSerializer(tableDefinition);
             bvalue = cvs.objectToByteArray(value);               
         }
-        TablespaceRecord tr;
-        try {
-            tr = tablespace.createTablePartitionRecord(ydb.getName(), tableDefinition.getName(), pinfo.dir, bvalue);
-        } catch (RocksDBException e) {
-           throw new IOException(e);
+        TablespaceRecord.Builder trb = TablespaceRecord.newBuilder().setType(TablespaceRecord.Type.TABLE_PARTITION)
+                .setTableName(tableDefinition.getName()).setPartition(TimeBasedPartition.newBuilder()
+                        .setPartitionDir(pinfo.getDir()).setPartitionStart(pinfo.getStart()).setPartitionEnd(pinfo.getEnd())
+                        .build());
+        if(bvalue!=null) {
+            trb.setPartitionValue(ByteString.copyFrom(bvalue));
         }
-        return new  RdbPartition(tr.getTbsIndex(), pinfo.partitionStart, pinfo.partitionEnd, value, pinfo.dir);
+        try {
+            TablespaceRecord tr = tablespace.createRecord(ydb.getName(), trb);
+            return new  RdbPartition(tr.getTbsIndex(), pinfo.getStart(), pinfo.getEnd(), value, pinfo.getDir());
+        } catch (RocksDBException e) {
+            throw new IOException(e);
+        }
+
     }
 
     @Override
@@ -154,33 +165,40 @@ public class RdbPartitionManager extends PartitionManager {
             ColumnValueSerializer cvs = new ColumnValueSerializer(tableDefinition);
             bvalue = cvs.objectToByteArray(value);
         }
-        TablespaceRecord tr;
+        TablespaceRecord.Builder trb = TablespaceRecord.newBuilder().setType(Type.TABLE_PARTITION)
+                .setTableName(tblName).setPartitionValue(ByteString.copyFrom(bvalue));
         try {
-            tr = tablespace.createTablePartitionRecord(ydb.getName(), tblName, null, bvalue);
+            TablespaceRecord tr = tablespace.createRecord(ydb.getName(), trb);
             return new RdbPartition(tr.getTbsIndex(), Long.MIN_VALUE, Long.MAX_VALUE, value, null);
         } catch (RocksDBException e) {
-           throw new IOException(e);
+            throw new IOException(e);
         }
-        			
+
     }
 
     @Override
-    protected HistogramInfo createHistogramByTime(PartitionInfo pinfo, String columnName) throws IOException {
+    protected HistogramInfo createHistogramByTime(TimePartitionInfo pinfo, String columnName) throws IOException {
         try {
-            TablespaceRecord tr = tablespace.createHistogramRecord(ydb.getName(), tableDefinition.getName(), columnName, pinfo.dir);
-            return new RdbHistogramInfo(tr.getTbsIndex(), columnName, pinfo.dir);                       
+            TablespaceRecord.Builder trb = TablespaceRecord.newBuilder().setType(Type.HISTOGRAM).setTableName(tableDefinition.getName())
+                    .setHistogramColumnName(columnName).setPartition(TimeBasedPartition.newBuilder().setPartitionDir(pinfo.getDir())
+                            .setPartitionStart(pinfo.getStart()).setPartitionEnd(pinfo.getEnd()).build());
+
+            TablespaceRecord tr = tablespace.createRecord(ydb.getName(), trb);
+            return new RdbHistogramInfo(tr.getTbsIndex(), columnName, pinfo.getDir());                       
         } catch (RocksDBException e) {
-           throw new IOException(e);
+            throw new IOException(e);
         }       
     }
 
     @Override
     protected HistogramInfo createHistogram(String columnName)  throws IOException {
         try {
-            TablespaceRecord tr = tablespace.createHistogramRecord(ydb.getName(), tableDefinition.getName(), columnName, null);
+            TablespaceRecord.Builder trb = TablespaceRecord.newBuilder().setTableName(tableDefinition.getName())
+                    .setHistogramColumnName(columnName);
+            TablespaceRecord tr = tablespace.createRecord(ydb.getName(), trb);
             return new RdbHistogramInfo(tr.getTbsIndex(), columnName, null);                       
         } catch (RocksDBException e) {
-           throw new IOException(e);
+            throw new IOException(e);
         }      
     }
 }

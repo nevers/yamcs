@@ -211,7 +211,7 @@ public class ArchiveParameterRestHandler extends RestHandler {
 
                 }
             });
-        } catch (RocksDBException e) {
+        } catch (RocksDBException|IOException e) {
             log.warn("Received exception during parmaeter retrieval ", e);
             throw new InternalServerErrorException(e.getMessage());
         }
@@ -343,7 +343,7 @@ public class ArchiveParameterRestHandler extends RestHandler {
                 replayListener.setNoRepeat(noRepeat);
               //FIXME - make async
                 retrieveParameterData(parchive, pcache, p, requestedId, mpvr, replayListener);
-            } catch (DecodingException|RocksDBException e) {
+            } catch (DecodingException|RocksDBException|IOException e) {
                 throw new InternalServerErrorException(e);
             }
             completeOK(req, resultb.build(), SchemaPvalue.ParameterData.WRITE);
@@ -352,7 +352,7 @@ public class ArchiveParameterRestHandler extends RestHandler {
 
 
     private void retrieveParameterData(ParameterArchive parchive,  ParameterCache pcache, Parameter p, NamedObjectId id,
-            MultipleParameterValueRequest mpvr, RestParameterReplayListener replayListener) throws RocksDBException, DecodingException {
+            MultipleParameterValueRequest mpvr, RestParameterReplayListener replayListener) throws RocksDBException, DecodingException, IOException {
 
 
         MutableLong lastParameterTime = new MutableLong(TimeEncoding.INVALID_INSTANT);

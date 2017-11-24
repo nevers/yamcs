@@ -63,7 +63,7 @@ class RdbHistogramIterator implements Iterator<HistogramRecord> {
         try {
             while(partitionIterator.hasNext()) {
                 RdbPartition part  = (RdbPartition) partitionIterator.next().get(0);
-                if(interval.hasStop() && part.getStart()>interval.getStop()) {
+                if(interval.hasEnd() && part.getStart()>interval.getEnd()) {
                     break; //finished
                 }
                 RDBFactory rdbf = RDBFactory.getInstance(ydb.getName());
@@ -148,7 +148,7 @@ class RdbHistogramIterator implements Iterator<HistogramRecord> {
             if((interval.hasStart()) && (stop<interval.getStart())) {
                 continue;
             }
-            if((interval.hasStop()) && (start>interval.getStop())) {
+            if((interval.hasEnd()) && (start>interval.getEnd())) {
                 if(r!=null) {
                     records.add(r);
                 }

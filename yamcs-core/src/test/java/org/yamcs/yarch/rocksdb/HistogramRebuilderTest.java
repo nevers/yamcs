@@ -46,7 +46,7 @@ public class HistogramRebuilderTest  extends YarchTestCase {
     
     @Test
     public void testDeleteValues() throws Exception {
-        Tablespace tablespace = rse.getTablespacece(ydb.getName());
+        Tablespace tablespace = rse.getTablespace(ydb.getName());
         TimeInterval interval = new TimeInterval();
         Iterator<HistogramRecord> iter = rse.getHistogramIterator(ydb, tblDef, "name", interval, 0);
         assertNumElementsEqual(iter, 3);
@@ -63,7 +63,7 @@ public class HistogramRebuilderTest  extends YarchTestCase {
 
     @Test
     public void testRebuildAll() throws Exception {
-        Tablespace tablespace = rse.getTablespacece(ydb.getName());
+        Tablespace tablespace = rse.getTablespace(ydb.getName());
         TimeInterval interval = new TimeInterval();
         Iterator<HistogramRecord> iter = rse.getHistogramIterator(ydb, tblDef, "name", interval, 0);
         assertNumElementsEqual(iter, 3);
