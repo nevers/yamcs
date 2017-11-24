@@ -20,7 +20,6 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameters;
 import org.rocksdb.RocksDBException;
 import org.yamcs.parameter.ParameterValue;
-import org.yamcs.LoggingUtils;
 import org.yamcs.YamcsServer;
 import org.yamcs.protobuf.Pvalue.AcquisitionStatus;
 import org.yamcs.parameter.Value;
@@ -68,7 +67,7 @@ public class ParameterArchiveTest {
       
         timeService = new MockupTimeService();
         YamcsServer.setMockupTimeService(timeService);
-        LoggingUtils.enableLogging();
+        //org.yamcs.LoggingUtils.enableLogging();
     }
 
     @Before
