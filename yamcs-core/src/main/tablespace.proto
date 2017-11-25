@@ -34,6 +34,10 @@ message TablespaceRecord {
      // relevant information: instanceName, partitioningSchema
      //there is only one record of this type for each instance and ParameterArchive
      PARCHIVE_PINFO = 6;
+     
+     //used by the tag database
+     // relevant information: instanceName
+     TAGDB = 7;
   }
   optional uint32 tbsIndex = 1;
   optional Type type = 2;

@@ -39,7 +39,8 @@ import org.yamcs.yarch.YarchException;
 public class RdbStorageEngine implements StorageEngine {
     Map<TableDefinition, RdbPartitionManager> partitionManagers = new HashMap<>();
     Map<String, Tablespace> tablespaces = new HashMap<>();
-
+    Map<String, RdbTagDb> tagDbs = new HashMap<>();
+    
     // number of bytes taken by the tbsIndex (prefix for all keys)
     public static final int TBS_INDEX_SIZE = 4;
 
@@ -148,11 +149,13 @@ public class RdbStorageEngine implements StorageEngine {
 
     @Override
     public synchronized TagDb getTagDb(YarchDatabaseInstance ydb) throws YarchException {
-        if (rdbTagDb == null) {
+        RdbTagDb rdbTagDb = tagDbs.get(ydb.getName());
+        if(rdbTagDb==null) {
             try {
-                rdbTagDb = new RdbTagDb(ydb);
+                rdbTagDb = new RdbTagDb(ydb.getName(), getTablespace(ydb.getTablespaceName()));
+                tagDbs.put(ydb.getName(), rdbTagDb);
             } catch (RocksDBException e) {
-                throw new YarchException("Cannot create tag db", e);
+                throw new YarchException("Cannot create tag db",e);
             }
         }
         return rdbTagDb;
@@ -161,7 +164,7 @@ public class RdbStorageEngine implements StorageEngine {
     private synchronized Tablespace getTablespace(YarchDatabaseInstance ydb, TableDefinition tbl) {
         String tablespaceName = tbl.getTablespaceName();
         if (tablespaceName == null) {
-            tablespaceName = ydb.getName();
+            tablespaceName = ydb.getTablespaceName();
         }
         if (tablespaces.containsKey(tablespaceName)) {
             return tablespaces.get(tablespaceName);

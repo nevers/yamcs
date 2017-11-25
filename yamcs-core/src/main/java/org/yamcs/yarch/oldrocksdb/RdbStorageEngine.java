@@ -44,11 +44,11 @@ import org.yamcs.yarch.YarchException;
 @Deprecated
 public class RdbStorageEngine implements StorageEngine {
     Map<TableDefinition, RdbPartitionManager> partitionManagers = new HashMap<>();
+    Map<String, RdbTagDb> tagDbs = new HashMap<>();
     static {
         RocksDB.loadLibrary();
     }
     static Logger log = LoggerFactory.getLogger(RdbStorageEngine.class.getName());
-    RdbTagDb rdbTagDb = null;
     boolean ignoreVersionIncompatibility = false;
     static final RdbStorageEngine instance = new RdbStorageEngine();
     
@@ -144,9 +144,11 @@ public class RdbStorageEngine implements StorageEngine {
 
     @Override
     public synchronized TagDb getTagDb(YarchDatabaseInstance ydb) throws YarchException {
+        RdbTagDb rdbTagDb = tagDbs.get(ydb.getName());
         if(rdbTagDb==null) {
             try {
                 rdbTagDb = new RdbTagDb(ydb);
+                tagDbs.put(ydb.getName(), rdbTagDb);
             } catch (RocksDBException e) {
                 throw new YarchException("Cannot create tag db",e);
             }

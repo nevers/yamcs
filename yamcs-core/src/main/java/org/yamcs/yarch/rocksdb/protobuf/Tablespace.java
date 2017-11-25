@@ -1083,6 +1083,15 @@ public final class Tablespace {
        * </pre>
        */
       PARCHIVE_PINFO(4, 6),
+      /**
+       * <code>TAGDB = 7;</code>
+       *
+       * <pre>
+       *used by the tag database
+       * relevant information: instanceName
+       * </pre>
+       */
+      TAGDB(5, 7),
       ;
 
       /**
@@ -1133,6 +1142,15 @@ public final class Tablespace {
        * </pre>
        */
       public static final int PARCHIVE_PINFO_VALUE = 6;
+      /**
+       * <code>TAGDB = 7;</code>
+       *
+       * <pre>
+       *used by the tag database
+       * relevant information: instanceName
+       * </pre>
+       */
+      public static final int TAGDB_VALUE = 7;
 
 
       public final int getNumber() { return value; }
@@ -1144,6 +1162,7 @@ public final class Tablespace {
           case 4: return PARCHIVE_PGID2PG;
           case 5: return PARCHIVE_DATA;
           case 6: return PARCHIVE_PINFO;
+          case 7: return TAGDB;
           default: return null;
         }
       }
@@ -2870,18 +2889,18 @@ public final class Tablespace {
     java.lang.String[] descriptorData = {
       "\n\020tablespace.proto\"X\n\022TimeBasedPartition" +
       "\022\024\n\014partitionDir\030\001 \001(\t\022\026\n\016partitionStart" +
-      "\030\002 \001(\003\022\024\n\014partitionEnd\030\003 \001(\003\"\202\003\n\020Tablesp" +
+      "\030\002 \001(\003\022\024\n\014partitionEnd\030\003 \001(\003\"\215\003\n\020Tablesp" +
       "aceRecord\022\020\n\010tbsIndex\030\001 \001(\r\022$\n\004type\030\002 \001(" +
       "\0162\026.TablespaceRecord.Type\022\024\n\014instanceNam" +
       "e\030\003 \001(\t\022\021\n\ttableName\030\004 \001(\t\022\033\n\023histogramC" +
       "olumnName\030\005 \001(\t\022\026\n\016partitionValue\030\006 \001(\014\022" +
       "&\n\tpartition\030\007 \001(\0132\023.TimeBasedPartition\022" +
       "\024\n\014parameterFqn\030\010 \001(\t\022\025\n\rparameterType\030\t" +
-      " \001(\r\022\032\n\022partitioningSchema\030\n \001(\t\"g\n\004Type",
+      " \001(\r\022\032\n\022partitioningSchema\030\n \001(\t\"r\n\004Type",
       "\022\023\n\017TABLE_PARTITION\020\001\022\r\n\tHISTOGRAM\020\002\022\024\n\020" +
       "PARCHIVE_PGID2PG\020\004\022\021\n\rPARCHIVE_DATA\020\005\022\022\n" +
-      "\016PARCHIVE_PINFO\020\006B\"\n org.yamcs.yarch.roc" +
-      "ksdb.protobuf"
+      "\016PARCHIVE_PINFO\020\006\022\t\n\005TAGDB\020\007B\"\n org.yamc" +
+      "s.yarch.rocksdb.protobuf"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
       new com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {

@@ -333,10 +333,22 @@ public class Tablespace {
      * @throws RocksDBException
      */
     public void putData(byte[] key, byte[] value) throws RocksDBException {
-        if (key.length < TBS_INDEX_SIZE) {
-            throw new IllegalArgumentException("The key has to contain at least the tbsIndex");
-        }
+        checkKey(key);
         db.put(key, value);
     }
 
+    public byte[] getData(byte[] key) throws RocksDBException {
+        return db.get(key);
+    }
+
+    public void remove(byte[] key) throws RocksDBException {
+        checkKey(key);
+        db.getDb().delete(key);
+    }
+
+    private void checkKey(byte[] key) {
+        if (key.length < TBS_INDEX_SIZE) {
+            throw new IllegalArgumentException("The key has to contain at least the tbsIndex");
+        }
+    }
 }
