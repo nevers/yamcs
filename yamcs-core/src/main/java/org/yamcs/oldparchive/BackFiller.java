@@ -1,4 +1,4 @@
-package org.yamcs.parameterarchive;
+package org.yamcs.oldparchive;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -49,7 +49,7 @@ public class BackFiller implements StreamSubscriber {
     long t0;
     int runCount;
     ScheduledThreadPoolExecutor executor=new ScheduledThreadPoolExecutor(1);
-    final ParameterArchiveV2 parchive;
+    final ParameterArchive parchive;
     long warmupTime;
     final TimeService timeService;
     static AtomicInteger count = new AtomicInteger();
@@ -62,7 +62,7 @@ public class BackFiller implements StreamSubscriber {
     //how often (in seconds) the fillup based on the stream monitoring is started
     long streamUpdateFillFrequency;
 
-    BackFiller(ParameterArchiveV2 parchive, Map<String, Object> config) {
+    BackFiller(ParameterArchive parchive, Map<String, Object> config) {
         this.parchive = parchive;
         if(config!=null) {
             parseConfig(config);

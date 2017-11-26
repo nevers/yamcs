@@ -11,4 +11,7 @@ public class RdbPartition extends Partition {
         this.dir = dir;
         this.binaryValue = binaryValue;
     }
+    public String getDir() {
+        return dir;
+    }
 }

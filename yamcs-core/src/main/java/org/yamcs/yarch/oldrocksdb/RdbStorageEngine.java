@@ -54,6 +54,10 @@ public class RdbStorageEngine implements StorageEngine {
     
     @Override
     public void loadTable(YarchDatabaseInstance ydb, TableDefinition tbl) throws YarchException {
+        if(!ignoreVersionIncompatibility) {
+        log.warn("You are using the old rocksdb storage engine for table {}. This is deprecated and it will be removed from future versions. "
+                + "Please upgrade using \"yamcs archive upgrade\" command", tbl.getName());
+        }
         if(tbl.hasPartitioning()) {
             RdbPartitionManager pm = new RdbPartitionManager(ydb, tbl);
             pm.readPartitionsFromDisk();

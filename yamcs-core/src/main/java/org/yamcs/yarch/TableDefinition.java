@@ -46,14 +46,13 @@ public class TableDefinition {
     static Logger log = LoggerFactory.getLogger(TableDefinition.class.getName());
 
     /*
-     * table version history /* 0: yamcs version < 3.0 1: - the histogram were
-     * stored in a separate rocksdb database. - pp table contained a column
-     * ppgroup instead of group 2: - the
-     * PROTOBUF(org.yamcs.protobuf.Pvalue$ParameterValue) is replaced by
-     * PARAMETER_VALUE in the pp table
+     * table version history 
+     *  0: yamcs version < 3.0 
+     *  1: - the histogram were stored in a separate rocksdb database. 
+     *     - pp table contained a column ppgroup instead of group 
+     *  2: - the PROTOBUF(org.yamcs.protobuf.Pvalue$ParameterValue) is replaced by PARAMETER_VALUE in the pp table
      * 
-     * To switch to the latest version, use the bin/yamcs archive --upgrade
-     * command
+     * To switch to the latest version, use the bin/yamcs archive upgrade command
      */
     public static final int CURRENT_FORMAT_VERSION = 2;
     private int formatVersion = CURRENT_FORMAT_VERSION;
@@ -350,6 +349,10 @@ public class TableDefinition {
         ydb.serializeTableDefinition(this);
     }
 
+    public synchronized void changeStorageEngineName(String newStorageEngineName) {
+        this.storageEngineName = newStorageEngineName;
+        ydb.serializeTableDefinition(this);
+    }
     /**
      * Renames column and serializes the table definition to disk.
      * 

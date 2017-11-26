@@ -6,7 +6,7 @@ services:
     - org.yamcs.archive.AlarmRecorder
     - org.yamcs.archive.EventRecorder
     - org.yamcs.archive.ReplayServer
-    - org.yamcs.archive.IndexServer
+    #- org.yamcs.archive.IndexServer
     - org.yamcs.parameter.SystemParametersCollector
     # create a realtime channel
     - class: org.yamcs.ProcessorCreatorService
@@ -17,11 +17,11 @@ services:
     #this one sets up the recording of the command history 
     - org.yamcs.archive.CommandHistoryRecorder
     - org.yamcs.alarms.AlarmReporter
-    - class: org.yamcs.parameterarchive.ParameterArchive
-      args:
-         realtimeFiller: 
-             enabled: true
-             flushInterval: 60
+#    - class: org.yamcs.parameterarchive.ParameterArchive
+#      args:
+#         realtimeFiller: 
+#             enabled: true
+#             flushInterval: 60
 
 #name of the class that is used for the TM index. If not specified, org.yamcs.archive.GenericCccsdsTmIndex is used
 #tmIndexer: 

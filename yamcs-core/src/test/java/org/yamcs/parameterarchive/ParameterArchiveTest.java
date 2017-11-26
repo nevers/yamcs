@@ -23,7 +23,7 @@ import org.yamcs.parameter.ParameterValue;
 import org.yamcs.YamcsServer;
 import org.yamcs.protobuf.Pvalue.AcquisitionStatus;
 import org.yamcs.parameter.Value;
-import org.yamcs.parameterarchive.ParameterArchive.Partition;
+import org.yamcs.parameterarchive.ParameterArchiveV2.Partition;
 import org.yamcs.protobuf.Yamcs.Value.Type;
 import org.yamcs.utils.DecodingException;
 import org.yamcs.utils.FileUtils;
@@ -48,7 +48,7 @@ public class ParameterArchiveTest {
     
     static MockupTimeService timeService;
     static Parameter p1, p2,p3,p4,p5;
-    ParameterArchive parchive;
+    ParameterArchiveV2 parchive;
     ParameterIdDb pidMap;
     ParameterGroupIdDb pgidMap;
     @BeforeClass
@@ -84,7 +84,7 @@ public class ParameterArchiveTest {
         if(partitioningSchema!=null) {
             conf.put("partitioningSchema", partitioningSchema);
         }
-        parchive = new ParameterArchive(instance, conf);
+        parchive = new ParameterArchiveV2(instance, conf);
         pidMap = parchive.getParameterIdDb();
         ParameterGroupIdDb pgidMap= parchive.getParameterGroupIdDb();
         assertNotNull(pidMap);
@@ -105,7 +105,7 @@ public class ParameterArchiveTest {
 
         //close and reopen the archive to check that the parameter is still there
 
-        parchive = new ParameterArchive(instance);
+        parchive = new ParameterArchiveV2(instance);
         pidMap = parchive.getParameterIdDb();
         pgidMap = parchive.getParameterGroupIdDb();
         assertNotNull(pidMap);

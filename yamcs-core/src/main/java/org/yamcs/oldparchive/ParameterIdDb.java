@@ -1,17 +1,18 @@
-package org.yamcs.parameterarchive;
+package org.yamcs.oldparchive;
 
-import java.io.IOException;
 import java.io.PrintStream;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.rocksdb.ColumnFamilyHandle;
+import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
+import org.rocksdb.RocksIterator;
 import org.yamcs.protobuf.Yamcs.Value;
 import org.yamcs.protobuf.Yamcs.Value.Type;
-import org.yamcs.yarch.rocksdb.Tablespace;
-import org.yamcs.yarch.rocksdb.protobuf.Tablespace.TablespaceRecord;
 
 /**
  * Stores a map between
@@ -27,17 +28,17 @@ import org.yamcs.yarch.rocksdb.protobuf.Tablespace.TablespaceRecord;
  *
  */
 public class ParameterIdDb {
-    final Tablespace tablespace;
-    final String yamcsInstance;
+    final RocksDB db;
+    final ColumnFamilyHandle p2pid_cfh;
+    public static final int TIMESTAMP_PARA_ID=0;
+
     //parameter fqn -> parameter type -> parameter id
     Map<String, Map<Integer, Integer>> p2pidCache = new HashMap<>();
-    //used as parameterId (tbsIndex) for the time  records
-    int timeParameterId;
-    public static final String TIME_PARAMETER_FQN="__time_parameter_"; 
+    int highestParaId = TIMESTAMP_PARA_ID;
 
-    ParameterIdDb(String yamcsInstance, Tablespace tablespace) throws RocksDBException, IOException {
-        this.tablespace = tablespace;
-        this.yamcsInstance = yamcsInstance;
+    ParameterIdDb(RocksDB db, ColumnFamilyHandle p2pid_cfh) {
+        this.db = db;
+        this.p2pid_cfh = p2pid_cfh;
         readDb();
     }
 
@@ -65,16 +66,9 @@ public class ParameterIdDb {
         }
         Integer pid = m.get(type);
         if(pid==null) {
-            TablespaceRecord.Builder trb = TablespaceRecord.newBuilder().setType(TablespaceRecord.Type.PARCHIVE_DATA)
-                    .setParameterFqn(paramFqn).setParameterType(type);
-            TablespaceRecord tr;
-            try {
-                tr = tablespace.createMetadataRecord(yamcsInstance, trb);
-                pid = tr.getTbsIndex();
-                m.put(type, pid);
-            } catch (RocksDBException e) {
-                throw new ParameterArchiveException("Cannot store key for new parameter id", e);
-            }
+            pid = ++highestParaId;
+            m.put(type, pid);
+            store(paramFqn);
         }
         return pid;
     }
@@ -97,30 +91,43 @@ public class ParameterIdDb {
         return et<<16|rt;
     }
 
+    private void store(String paramFqn) throws ParameterArchiveException {
+        Map<Integer, Integer> m = p2pidCache.get(paramFqn);
+        byte[] key = paramFqn.getBytes(StandardCharsets.UTF_8);
+        ByteBuffer bb = ByteBuffer.allocate(8*m.size());
+        for(Map.Entry<Integer, Integer> me:m.entrySet()) {
+            bb.putInt(me.getKey());
+            bb.putInt(me.getValue());
+        }
+        try {
+            db.put(p2pid_cfh, key, bb.array());
+        } catch (RocksDBException e) {
+            throw new ParameterArchiveException("Cannot store key for new parameter id", e);
+        }
+    }
 
-    private void readDb() throws RocksDBException, IOException {
-        List<TablespaceRecord> trlist = tablespace.filter(TablespaceRecord.Type.PARCHIVE_DATA, yamcsInstance, (trb)-> true);
-        if(trlist.isEmpty()) {
-            //new database- create a record for the time parameter
-            TablespaceRecord.Builder trb = TablespaceRecord.newBuilder().setType(TablespaceRecord.Type.PARCHIVE_DATA)
-                    .setParameterFqn(TIME_PARAMETER_FQN);
-            TablespaceRecord tr = tablespace.createMetadataRecord(yamcsInstance, trb);
-            timeParameterId = tr.getTbsIndex();
-        } else {
-            for(TablespaceRecord tr: trlist) {
-                String paraName = tr.getParameterFqn();
-                if(TIME_PARAMETER_FQN.equals(paraName)) {
-                    timeParameterId = tr.getTbsIndex();
-                } else {
-                    int pid = tr.getTbsIndex();
-                    int type = tr.getParameterType();
-                    Map<Integer, Integer> m = p2pidCache.get(paraName);
-                    if(m==null) {
-                        m = new HashMap<>();
-                        p2pidCache.put(paraName, m);
-                    }
+
+    private void readDb() {
+        try(RocksIterator it = db.newIterator(p2pid_cfh)) {
+            it.seekToFirst();
+            while(it.isValid()) {
+                byte[] pfqn = it.key();
+                byte[] pIdTypeList = it.value();
+
+                String paraName = new String(pfqn, StandardCharsets.UTF_8);
+                Map<Integer, Integer> m = new HashMap<Integer, Integer>();
+
+                p2pidCache.put(paraName, m);
+                ByteBuffer bb = ByteBuffer.wrap(pIdTypeList);
+                while(bb.hasRemaining()) {
+                    int type = bb.getInt();
+                    int pid = bb.getInt();            
                     m.put(type, pid);
+                    if(pid > highestParaId) {
+                        highestParaId = pid;
+                    }
                 }
+                it.next();
             }
         }
     }
@@ -139,8 +146,8 @@ public class ParameterIdDb {
             for(Map.Entry<Integer, Integer> e: m.entrySet()) {
                 int parameterId = e.getValue();
                 int et = e.getKey()>>16;
-        int rt = e.getKey()&0xFFFF;
-        out.println("\t("+getType(et)+", "+getType(rt)+") -> "+parameterId);
+                int rt = e.getKey()&0xFFFF;
+                out.println("\t("+getType(et)+", "+getType(rt)+") -> "+parameterId);
             }
         }
     }
@@ -192,7 +199,10 @@ public class ParameterIdDb {
         return null;
     }
 
-
+    public Map<String, Map<Integer, Integer>> getMap() {
+        return p2pidCache;
+    }
+    
     public static class ParameterId {
         public final int pid;
         public final Type engType;
@@ -212,6 +222,6 @@ public class ParameterIdDb {
                     + ", rawType=" + rawType + "]";
         }
     }
-
+    
 
 }

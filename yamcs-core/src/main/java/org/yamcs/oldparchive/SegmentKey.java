@@ -1,4 +1,4 @@
-package org.yamcs.parameterarchive;
+package org.yamcs.oldparchive;
 
 import java.nio.ByteBuffer;
 
@@ -44,6 +44,20 @@ public class SegmentKey {
         byte type = bb.get();
         return new SegmentKey(parameterId, parameterGroupId, segmentStart, type);
     }
+    public int getParameterId() {
+        return parameterId;
+    }
+    
+    public int getParameterGroupId() {
+        return parameterGroupId;
+    }
+    
+    public long getSegmentStart() {
+        return segmentStart;
+    }
+    public byte getType() {
+        return type;
+    }
     
     @Override
     public String toString() {
@@ -51,4 +65,7 @@ public class SegmentKey {
                 + parameterGroupId + ", segmentStart=" + segmentStart
                 + ", type=" + type + " encoded: "+StringConverter.arrayToHexString(encode())+"]";
     }
+
+
+    
 }

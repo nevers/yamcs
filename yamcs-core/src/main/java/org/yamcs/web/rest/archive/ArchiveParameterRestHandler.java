@@ -20,7 +20,7 @@ import org.yamcs.parameter.ParameterValueWithId;
 import org.yamcs.parameterarchive.ConsumerAbortException;
 import org.yamcs.parameterarchive.MultiParameterDataRetrieval;
 import org.yamcs.parameterarchive.MultipleParameterValueRequest;
-import org.yamcs.parameterarchive.ParameterArchive;
+import org.yamcs.parameterarchive.ParameterArchiveV2;
 import org.yamcs.parameterarchive.ParameterGroupIdDb;
 import org.yamcs.parameterarchive.ParameterIdDb;
 import org.yamcs.parameterarchive.ParameterIdDb.ParameterId;
@@ -100,7 +100,7 @@ public class ArchiveParameterRestHandler extends RestHandler {
         long stop = req.getQueryParameterAsDate("stop", TimeEncoding.getWallclockTime());
 
         RestDownsampler sampler = new RestDownsampler(stop);
-        ParameterArchive parchive = getParameterArchive(instance);
+        ParameterArchiveV2 parchive = getParameterArchive(instance);
         ParameterIdDb piddb = parchive.getParameterIdDb();
 
         ParameterCache pcache = null;
@@ -164,7 +164,7 @@ public class ArchiveParameterRestHandler extends RestHandler {
         }
     }
 
-    private void sampleDataForParameterId(ParameterArchive parchive, Value.Type engType, SingleParameterValueRequest spvr, RestDownsampler sampler) throws HttpException {
+    private void sampleDataForParameterId(ParameterArchiveV2 parchive, Value.Type engType, SingleParameterValueRequest spvr, RestDownsampler sampler) throws HttpException {
         spvr.setRetrieveEngineeringValues(true);
         spvr.setRetrieveParameterStatus(false);
         spvr.setRetrieveRawValues(false);
@@ -217,8 +217,8 @@ public class ArchiveParameterRestHandler extends RestHandler {
         }
 
     }
-    private static ParameterArchive getParameterArchive(String instance) throws BadRequestException {
-        ParameterArchive parameterArchive = YamcsServer.getService(instance, ParameterArchive.class);
+    private static ParameterArchiveV2 getParameterArchive(String instance) throws BadRequestException {
+        ParameterArchiveV2 parameterArchive = YamcsServer.getService(instance, ParameterArchiveV2.class);
         if (parameterArchive == null) {
             throw new BadRequestException("ParameterArchive not configured for this instance");
         }
@@ -259,7 +259,7 @@ public class ArchiveParameterRestHandler extends RestHandler {
 
         boolean ascending = !req.asksDescending(true);
 
-        ParameterArchive parchive = getParameterArchive(instance);
+        ParameterArchiveV2 parchive = getParameterArchive(instance);
         ParameterIdDb piddb = parchive.getParameterIdDb();
         IntArray pidArray = new IntArray();
         IntArray pgidArray = new IntArray();
@@ -351,7 +351,7 @@ public class ArchiveParameterRestHandler extends RestHandler {
     }
 
 
-    private void retrieveParameterData(ParameterArchive parchive,  ParameterCache pcache, Parameter p, NamedObjectId id,
+    private void retrieveParameterData(ParameterArchiveV2 parchive,  ParameterCache pcache, Parameter p, NamedObjectId id,
             MultipleParameterValueRequest mpvr, RestParameterReplayListener replayListener) throws RocksDBException, DecodingException, IOException {
 
 

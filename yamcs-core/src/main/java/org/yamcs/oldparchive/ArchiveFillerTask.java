@@ -1,6 +1,5 @@
-package org.yamcs.parameterarchive;
+package org.yamcs.oldparchive;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -19,7 +18,7 @@ import org.yamcs.utils.SortedIntArray;
 import org.yamcs.utils.TimeEncoding;
 
 class ArchiveFillerTask implements ParameterConsumer {
-    final ParameterArchiveV2 parameterArchive;
+    final ParameterArchive parameterArchive;
     final Logger log;
     
     long numParams = 0;
@@ -34,7 +33,7 @@ class ArchiveFillerTask implements ParameterConsumer {
     
     long threshold = 60000;
 
-    public ArchiveFillerTask(ParameterArchiveV2 parameterArchive) {
+    public ArchiveFillerTask(ParameterArchive parameterArchive) {
         this.parameterArchive = parameterArchive;
         this.parameterIdMap = parameterArchive.getParameterIdDb();
         this.parameterGroupIdMap = parameterArchive.getParameterGroupIdDb();
@@ -93,7 +92,7 @@ class ArchiveFillerTask implements ParameterConsumer {
             long segmentId = SortedTimeSegment.getSegmentId(t);
             Map<Integer, PGSegment> m = pgSegments.get(segmentId);
             if(m==null) {
-                m = new HashMap<>();
+                m = new HashMap<Integer, PGSegment>();
                 pgSegments.put(segmentId, m);
             }
             PGSegment pgs = m.get(parameterGroupId);
@@ -112,23 +111,22 @@ class ArchiveFillerTask implements ParameterConsumer {
 
     void flush() {
         log.info("Starting a consolidation process, number of intervals: {}", pgSegments.size());
-        for(Map.Entry<Long, Map<Integer, PGSegment>> entry: pgSegments.entrySet()) {
-            consolidateAndWriteToArchive(entry.getKey(), entry.getValue().values());
+        for(Map<Integer, PGSegment> m: pgSegments.values()) {
+            consolidateAndWriteToArchive(m.values());
         }
     }
     
     /**
      * writes data into the archive
      * @param pgList
-     * @throws IOException 
      */
-    protected void consolidateAndWriteToArchive(long segStart, Collection<PGSegment> pgList) {
+    protected void consolidateAndWriteToArchive(Collection<PGSegment> pgList) {
         for(PGSegment pgs: pgList) {
             pgs.consolidate();
         }
         try {
-            parameterArchive.writeToArchive(segStart, pgList);
-        } catch (RocksDBException|IOException e) {
+            parameterArchive.writeToArchive(pgList);
+        } catch (RocksDBException e) {
             log.error("failed to write data to the archive", e);
         }
     }
@@ -147,7 +145,7 @@ class ArchiveFillerTask implements ParameterConsumer {
             Map<Integer, PGSegment> m = pgSegments.remove(collectionSegmentStart);
             if(m!=null) {
                 log.debug("Writing to archive the segment: [{} - {})", TimeEncoding.toString(collectionSegmentStart), TimeEncoding.toString(nextSegmentStart));
-                consolidateAndWriteToArchive(collectionSegmentStart, m.values());
+                consolidateAndWriteToArchive(m.values());
             } 
             collectionSegmentStart = nextSegmentStart;
             nextSegmentStart = SortedTimeSegment.getNextSegmentStart(collectionSegmentStart);
@@ -161,7 +159,7 @@ class ArchiveFillerTask implements ParameterConsumer {
     /*builds incrementally a list of parameter id and parameter value, sorted by parameter ids */
     class SortedParameterList {
         SortedIntArray parameterIdArray = new SortedIntArray();
-        List<ParameterValue> sortedPvList = new ArrayList<>();
+        List<ParameterValue> sortedPvList = new ArrayList<ParameterValue>();
 
         void add(ParameterValue pv) {
             String fqn = pv.getParameterQualifiedNamed();
