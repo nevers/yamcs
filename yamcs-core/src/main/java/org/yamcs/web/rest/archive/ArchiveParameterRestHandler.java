@@ -226,7 +226,6 @@ public class ArchiveParameterRestHandler extends RestHandler {
     }
     private boolean isOldParameterArchive(String instance) throws BadRequestException {
         ParameterArchive parameterArchive = YamcsServer.getService(instance, ParameterArchive.class);
-        System.out.println("hhhhhhhhhhhhhhhhhhhhhhhh parchive: "+parameterArchive);
         
         if (parameterArchive == null) {
             throw new BadRequestException("ParameterArchive not configured for this instance");

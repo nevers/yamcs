@@ -295,7 +295,6 @@ public class ParameterArchiveV2 extends AbstractService {
                 ByteArrayUtils.encodeInt(partitionTbsIndex, key, 0);
                 ByteArrayUtils.encodeLong(pinfo.getStart(), key, TBS_INDEX_SIZE);
                 tablespace.putData(key, tbp.toByteArray());
-                System.out.println("------------- created partition "+p);
             }
             return p;
         }
