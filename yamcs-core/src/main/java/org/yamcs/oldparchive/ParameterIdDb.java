@@ -202,6 +202,22 @@ public class ParameterIdDb {
     public Map<String, Map<Integer, Integer>> getMap() {
         return p2pidCache;
     }
+
+    public static Value.Type getEngType(int x) {
+        int et = x>>16;
+        if(et==0xFFFF) {
+            return null;
+        }
+        else return Value.Type.valueOf(et);
+    }
+    
+    public static Value.Type getRawType(int x) {
+        int rt = x&0xFFFF;
+        if(rt==0xFFFF) {
+            return null;
+        }
+        else return Value.Type.valueOf(rt);
+    }
     
     public static class ParameterId {
         public final int pid;
@@ -210,10 +226,8 @@ public class ParameterIdDb {
 
         public ParameterId(int pid, int numericType) {
             this.pid = pid;
-            int et =  numericType>>16;
-            int rt =  numericType&0xFFFF;
-            this.engType = getType(et);
-            this.rawType = getType(rt);
+            this.engType = getEngType(numericType);
+            this.rawType = getRawType(numericType);
         }
 
         @Override
@@ -222,6 +236,4 @@ public class ParameterIdDb {
                     + ", rawType=" + rawType + "]";
         }
     }
-    
-
 }

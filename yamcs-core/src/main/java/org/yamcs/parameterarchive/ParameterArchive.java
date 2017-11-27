@@ -23,7 +23,7 @@ import com.google.common.util.concurrent.Service;
 public class ParameterArchive extends AbstractService {
     org.yamcs.oldparchive.ParameterArchive oldparchive;
     static Logger log = LoggerFactory.getLogger(ParameterArchive.class.getName());
-    
+
     Service parchive;
     public ParameterArchive(String instance, Map<String, Object> args) throws IOException, RocksDBException {
         if(startOld(instance)) {
@@ -39,7 +39,7 @@ public class ParameterArchive extends AbstractService {
             parchive = new ParameterArchiveV2(instance);
         }
     }
-    
+
     @Override
     protected void doStart() {
         parchive.startAsync();
@@ -53,16 +53,20 @@ public class ParameterArchive extends AbstractService {
         parchive.awaitRunning();
         notifyStopped();
     }
-    
+
     boolean startOld(String instance) {
         YarchDatabaseInstance ydb = YarchDatabase.getInstance(instance);
         File f = new File(ydb.getRoot()+"/ParameterArchive");
+        
         boolean b= f.exists();
         if(b) {
-            log.warn("You are using the old rocksdb storage engine for table {}. This is deprecated and it will be removed from future versions. "
-                    + "Please upgrade using \"yamcs archive upgrade\" command", tbl.getName());
-            }
+            log.warn("You are using the old rocksdb storage engine for the Parameter Archive. This is deprecated and it will be removed from future versions. "
+                    + "Please upgrade using \"yamcs archive upgrade --instance "+instance+"\" command");
         }
         return b;
+    }
+    
+    public Service getParchive() {
+        return parchive;
     }
 }

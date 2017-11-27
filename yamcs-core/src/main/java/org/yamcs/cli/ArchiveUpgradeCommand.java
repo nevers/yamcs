@@ -1,7 +1,5 @@
 package org.yamcs.cli;
 
-import static org.yamcs.yarch.rocksdb.RdbStorageEngine.TBS_INDEX_SIZE;
-
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -15,10 +13,13 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksIterator;
 import org.yamcs.YConfiguration;
-import org.yamcs.oldparchive.ParameterGroupIdDb;
-import org.yamcs.oldparchive.ParameterIdDb;
+import org.yamcs.archive.TagDb;
+import org.yamcs.archive.TagReceiver;
+import org.yamcs.parameterarchive.ParameterGroupIdDb;
+import org.yamcs.parameterarchive.ParameterIdDb;
 import org.yamcs.parameterarchive.ParameterArchiveV2;
 import org.yamcs.parameterarchive.SegmentKey;
+import org.yamcs.protobuf.Yamcs.ArchiveTag;
 import org.yamcs.utils.ByteArrayUtils;
 import org.yamcs.utils.SortedIntArray;
 import org.yamcs.utils.TimeInterval;
@@ -38,6 +39,7 @@ import org.yamcs.yarch.YarchException;
 import org.yamcs.yarch.oldrocksdb.HistogramRebuilder;
 import org.yamcs.yarch.oldrocksdb.RdbPartition;
 import org.yamcs.yarch.oldrocksdb.RdbPartitionManager;
+import org.yamcs.yarch.oldrocksdb.RdbTagDb;
 import org.yamcs.yarch.rocksdb.RdbStorageEngine;
 import org.yamcs.yarch.rocksdb.Tablespace;
 import org.yamcs.yarch.rocksdb.protobuf.Tablespace.TablespaceRecord;
@@ -80,6 +82,7 @@ public class ArchiveUpgradeCommand extends Command {
         filesToRemove = new FileWriter(f);
         upgradeYarchTables(instance);
         upgradeParameterArchive(instance);
+        upgradeTagsDb(instance);
         console.println("\n*************************************\n");
         console.println("Instance "+instance+" has been upgraded");
         if(filesToRemoveCount>0) {
@@ -202,45 +205,36 @@ public class ArchiveUpgradeCommand extends Command {
         org.yamcs.oldparchive.ParameterArchive oldparch = new org.yamcs.oldparchive.ParameterArchive(instance);
         RdbStorageEngine rse = RdbStorageEngine.getInstance();
         Tablespace tablespace = rse.getTablespace(ydb.getTablespaceName());
-        ParameterIdDb paraId = oldparch.getParameterIdDb();
+        org.yamcs.oldparchive.ParameterIdDb oldParaIdDb = oldparch.getParameterIdDb();
+        ParameterIdDb newParaIdDb = newparch.getParameterIdDb();
+        
         log.debug("creating parameter ids in the tablespace {} ", tablespace.getName());
         Map<Integer, Integer> oldToNewParaId = new HashMap<>();
 
-        TablespaceRecord.Builder trb = TablespaceRecord.newBuilder().setType(Type.PARCHIVE_DATA)
-                .setParameterFqn(org.yamcs.parameterarchive.ParameterIdDb.TIME_PARAMETER_FQN);
-        TablespaceRecord tr = tablespace.createMetadataRecord(instance, trb);
-        oldToNewParaId.put(ParameterIdDb.TIMESTAMP_PARA_ID, tr.getTbsIndex());
+        oldToNewParaId.put(org.yamcs.oldparchive.ParameterIdDb.TIMESTAMP_PARA_ID, newParaIdDb.getTimeParameterId());
        
-        for(Map.Entry<String, Map<Integer, Integer>> e: paraId.getMap().entrySet()) {
+        for(Map.Entry<String, Map<Integer, Integer>> e: oldParaIdDb.getMap().entrySet()) {
             String fqn = e.getKey();
             for(Map.Entry<Integer, Integer> e1: e.getValue().entrySet()) {
                 int paraType = e1.getKey();
-                int paramId = e1.getValue();
-                trb = TablespaceRecord.newBuilder().setType(Type.PARCHIVE_DATA)
-                        .setParameterFqn(fqn).setParameterType(paraType);
-                tr = tablespace.createMetadataRecord(instance, trb);
-                oldToNewParaId.put(paramId, tr.getTbsIndex());
+                int oldParamId = e1.getValue();
+                int newParamId = newParaIdDb.createAndGet(fqn, org.yamcs.oldparchive.ParameterIdDb.getEngType(paraType),
+                        org.yamcs.oldparchive.ParameterIdDb.getRawType(paraType));
+                oldToNewParaId.put(oldParamId, newParamId);
             }
         }
         log.debug("creating parameter groups in the tablespace {} ", tablespace.getName());
-        ParameterGroupIdDb paraGroupId = oldparch.getParameterGroupIdDb();
-        Map<SortedIntArray, Integer> oldGroups = paraGroupId.getMap();
-        Map<Integer, SortedIntArray> newGroups = new HashMap<>();
+        org.yamcs.oldparchive.ParameterGroupIdDb oldParaGroupIdDb = oldparch.getParameterGroupIdDb();
+        ParameterGroupIdDb newParaGroupIdDb = newparch.getParameterGroupIdDb();
+        Map<SortedIntArray, Integer> oldGroups = oldParaGroupIdDb.getMap();
+        Map<Integer, Integer> oldToNewGroupId = new HashMap<>();
         for(Map.Entry<SortedIntArray, Integer> e: oldGroups.entrySet()) {
             SortedIntArray s = new SortedIntArray();
             e.getKey().forEach(x-> s.insert(oldToNewParaId.get(x)));
-            newGroups.put(e.getValue(), s);
+            int newGroupId = newParaGroupIdDb.createAndGet(s);
+            oldToNewGroupId.put(e.getValue(), newGroupId);
         }
-        trb = TablespaceRecord.newBuilder().setType(Type.PARCHIVE_PGID2PG);
-        tr = tablespace.createMetadataRecord(yamcsInstance, trb);
-        int pgidTbsIndex = tr.getTbsIndex();
-        for(Map.Entry<Integer, SortedIntArray> e: newGroups.entrySet()) {
-            byte[] key = new byte[TBS_INDEX_SIZE+4];
-            ByteArrayUtils.encodeInt(pgidTbsIndex, key, 0);
-            ByteArrayUtils.encodeInt(e.getKey(), key, TBS_INDEX_SIZE);
-            tablespace.putData(key, e.getValue().encodeToVarIntArray());
-        }            
-        log.debug("migrating the data");
+        log.debug("migrating the ParameterArchive data");
         int segCount = 0;
         for(org.yamcs.oldparchive.ParameterArchive.Partition oldpart:oldparch.getPartitions()) {
             try(RocksIterator it=oldparch.getIterator(oldpart)) {
@@ -248,10 +242,11 @@ public class ArchiveUpgradeCommand extends Command {
                 while(it.isValid()) {
                     org.yamcs.oldparchive.SegmentKey oldkey = org.yamcs.oldparchive.SegmentKey.decode(it.key());
                     int newparaid = oldToNewParaId.get(oldkey.getParameterId());
-                    SegmentKey newkey = new SegmentKey(newparaid, oldkey.getParameterGroupId(), oldkey.getSegmentStart(), oldkey.getType());
+                    int newgroupid = oldToNewGroupId.get(oldkey.getParameterGroupId());
+                    SegmentKey newkey = new SegmentKey(newparaid, newgroupid, oldkey.getSegmentStart(), oldkey.getType());
                     byte[] val = it.value();
                     org.yamcs.parameterarchive.ParameterArchiveV2.Partition newpart = newparch.createAndGetPartition(oldkey.getSegmentStart());
-                    tablespace.getRdb(newpart.getPartitionDir(), false).getDb().put(newkey.encode(), val);
+                    tablespace.getRdb(newpart.getPartitionDir(), false).put(newkey.encode(), val);
                     segCount++;
                     if(segCount%1000==0) {
                         log.info("{}:ParameterArchive migrated {} segments", instance, segCount);
@@ -264,7 +259,49 @@ public class ArchiveUpgradeCommand extends Command {
         
         
         File f1 = new File(ydb.getRoot()+"/ParameterArchive.old");
-        f.renameTo(f1);
+        if(!f.renameTo(f1)){
+            throw new IOException("Could not rename "+f+" to "+f1);
+        }
+        filesToRemoveCount++;
         filesToRemove.write("rm -rf "+f1.getAbsolutePath()+"\n");
+    }
+    
+    private void upgradeTagsDb(String instance) throws Exception {
+        YarchDatabaseInstance ydb = YarchDatabase.getInstance(instance);
+        File f = new File(ydb.getRoot()+"/tags");
+        if(!f.exists()) {
+            return;
+        }
+        RdbStorageEngine newRse = RdbStorageEngine.getInstance();
+        org.yamcs.yarch.oldrocksdb.RdbStorageEngine oldRse = org.yamcs.yarch.oldrocksdb.RdbStorageEngine.getInstance();
+        TagDb oldTagDb = oldRse.getTagDb(ydb);
+        TagDb newTagDb = newRse.getTagDb(ydb);
+        Semaphore s = new Semaphore(0);
+        AtomicInteger count = new AtomicInteger();
+        oldTagDb.getTags(new TimeInterval(), new TagReceiver() {
+            @Override
+            public void onTag(ArchiveTag tag) {
+                try {
+                    newTagDb.insertTag(tag);
+                    count.incrementAndGet();
+                } catch (IOException e) {
+                    throw new RuntimeException("Error when inserting tag", e);
+                }
+            }
+            
+            @Override
+            public void finished() {
+                s.release();
+            }
+        });
+        s.acquire();
+        File f1 = new File(ydb.getRoot()+"/tags.old");
+        if(!f.renameTo(f1)){
+            throw new IOException("Could not rename "+f+" to "+f1);
+        }
+        filesToRemove.write("rm -rf "+f1.getAbsolutePath()+"\n");
+        filesToRemoveCount++;
+        log.info("{}:TagDB migration finished, migrated {} tags", instance, count);
+        
     }
 }

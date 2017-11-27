@@ -17,18 +17,17 @@ import org.yamcs.api.MediaType;
 import org.yamcs.parameter.ParameterCache;
 import org.yamcs.parameter.ParameterValue;
 import org.yamcs.parameter.ParameterValueWithId;
-import org.yamcs.parameterarchive.ConsumerAbortException;
-import org.yamcs.parameterarchive.MultiParameterDataRetrieval;
-import org.yamcs.parameterarchive.MultipleParameterValueRequest;
-import org.yamcs.parameterarchive.ParameterArchive;
-import org.yamcs.parameterarchive.ParameterArchiveV2;
-import org.yamcs.parameterarchive.ParameterGroupIdDb;
-import org.yamcs.parameterarchive.ParameterIdDb;
-import org.yamcs.parameterarchive.ParameterIdDb.ParameterId;
-import org.yamcs.parameterarchive.ParameterIdValueList;
-import org.yamcs.parameterarchive.ParameterValueArray;
-import org.yamcs.parameterarchive.SingleParameterDataRetrieval;
-import org.yamcs.parameterarchive.SingleParameterValueRequest;
+import org.yamcs.oldparchive.ConsumerAbortException;
+import org.yamcs.oldparchive.MultiParameterDataRetrieval;
+import org.yamcs.oldparchive.MultipleParameterValueRequest;
+import org.yamcs.oldparchive.ParameterArchive;
+import org.yamcs.oldparchive.ParameterGroupIdDb;
+import org.yamcs.oldparchive.ParameterIdDb;
+import org.yamcs.oldparchive.ParameterIdDb.ParameterId;
+import org.yamcs.oldparchive.ParameterIdValueList;
+import org.yamcs.oldparchive.ParameterValueArray;
+import org.yamcs.oldparchive.SingleParameterDataRetrieval;
+import org.yamcs.oldparchive.SingleParameterValueRequest;
 import org.yamcs.protobuf.Pvalue.ParameterData;
 import org.yamcs.protobuf.Pvalue.TimeSeries;
 import org.yamcs.protobuf.SchemaPvalue;
@@ -59,12 +58,13 @@ import io.netty.buffer.ByteBufOutputStream;
  * Provides parameters from ParameterArchive or via replays using {@link ArchiveParameterReplayRestHandler}
  * @author nm
  *
+ *@deprecated - to be removed together with the old parameter archive
  */
-public class ArchiveParameterRestHandler extends RestHandler {
+@Deprecated
+public class OldArchiveParameterRestHandler extends RestHandler {
     private static final String DEFAULT_PROCESSOR = "realtime";
-    private static final Logger log = LoggerFactory.getLogger(ArchiveParameterRestHandler.class);
+    private static final Logger log = LoggerFactory.getLogger(OldArchiveParameterRestHandler.class);
     private ArchiveParameterReplayRestHandler aprh = new ArchiveParameterReplayRestHandler();
-    private OldArchiveParameterRestHandler oldaprh = new OldArchiveParameterRestHandler();
     
     /**
      * A series is a list of samples that are determined in one-pass while processing a stream result.
@@ -80,13 +80,8 @@ public class ArchiveParameterRestHandler extends RestHandler {
             aprh.getParameterSamples(req);
             return;
         }
-        
+            
         String instance = verifyInstance(req, req.getRouteParam("instance"));
-        if(isOldParameterArchive(instance)) {
-            oldaprh.getParameterSamples(req);
-            return;
-        }
-        
         XtceDb mdb = XtceDbFactory.getInstance(instance);
 
         Parameter p = verifyParameter(req, mdb, req.getRouteParam("name"));
@@ -107,7 +102,7 @@ public class ArchiveParameterRestHandler extends RestHandler {
         long stop = req.getQueryParameterAsDate("stop", TimeEncoding.getWallclockTime());
 
         RestDownsampler sampler = new RestDownsampler(stop);
-        ParameterArchiveV2 parchive = getParameterArchive(instance);
+        ParameterArchive parchive = getParameterArchive(instance);
         ParameterIdDb piddb = parchive.getParameterIdDb();
 
         ParameterCache pcache = null;
@@ -171,7 +166,7 @@ public class ArchiveParameterRestHandler extends RestHandler {
         }
     }
 
-    private void sampleDataForParameterId(ParameterArchiveV2 parchive, Value.Type engType, SingleParameterValueRequest spvr, RestDownsampler sampler) throws HttpException {
+    private void sampleDataForParameterId(ParameterArchive parchive, Value.Type engType, SingleParameterValueRequest spvr, RestDownsampler sampler) throws HttpException {
         spvr.setRetrieveEngineeringValues(true);
         spvr.setRetrieveParameterStatus(false);
         spvr.setRetrieveRawValues(false);
@@ -218,28 +213,18 @@ public class ArchiveParameterRestHandler extends RestHandler {
 
                 }
             });
-        } catch (RocksDBException|IOException e) {
+        } catch (RocksDBException e) {
             log.warn("Received exception during parmaeter retrieval ", e);
             throw new InternalServerErrorException(e.getMessage());
         }
 
     }
-    private boolean isOldParameterArchive(String instance) throws BadRequestException {
-        ParameterArchive parameterArchive = YamcsServer.getService(instance, ParameterArchive.class);
-        System.out.println("hhhhhhhhhhhhhhhhhhhhhhhh parchive: "+parameterArchive);
-        
+    private static ParameterArchive getParameterArchive(String instance) throws BadRequestException {
+        org.yamcs.parameterarchive.ParameterArchive parameterArchive = YamcsServer.getService(instance, org.yamcs.parameterarchive.ParameterArchive.class);
         if (parameterArchive == null) {
             throw new BadRequestException("ParameterArchive not configured for this instance");
         }
-        return parameterArchive.getParchive() instanceof org.yamcs.oldparchive.ParameterArchive;
-    }
-    
-    private static ParameterArchiveV2 getParameterArchive(String instance) throws BadRequestException {
-        ParameterArchive parameterArchive = YamcsServer.getService(instance, ParameterArchive.class);
-        if (parameterArchive == null) {
-            throw new BadRequestException("ParameterArchive not configured for this instance");
-        }
-        return (ParameterArchiveV2) parameterArchive.getParchive();
+        return (ParameterArchive) parameterArchive.getParchive();
     }
 
     /**copied from guava*/
@@ -259,11 +244,7 @@ public class ArchiveParameterRestHandler extends RestHandler {
         }
         
         String instance = verifyInstance(req, req.getRouteParam("instance"));
-        if(isOldParameterArchive(instance)) {
-            oldaprh.listParameterHistory(req);
-            return;
-        }
-        
+
         XtceDb mdb = XtceDbFactory.getInstance(instance);
         NameDescriptionWithId<Parameter> requestedParamWithId = verifyParameterWithId(req, mdb, req.getRouteParam("name"));
         
@@ -280,7 +261,7 @@ public class ArchiveParameterRestHandler extends RestHandler {
 
         boolean ascending = !req.asksDescending(true);
 
-        ParameterArchiveV2 parchive = getParameterArchive(instance);
+        ParameterArchive parchive = getParameterArchive(instance);
         ParameterIdDb piddb = parchive.getParameterIdDb();
         IntArray pidArray = new IntArray();
         IntArray pgidArray = new IntArray();
@@ -372,7 +353,7 @@ public class ArchiveParameterRestHandler extends RestHandler {
     }
 
 
-    private void retrieveParameterData(ParameterArchiveV2 parchive,  ParameterCache pcache, Parameter p, NamedObjectId id,
+    private void retrieveParameterData(ParameterArchive parchive,  ParameterCache pcache, Parameter p, NamedObjectId id,
             MultipleParameterValueRequest mpvr, RestParameterReplayListener replayListener) throws RocksDBException, DecodingException, IOException {
 
 

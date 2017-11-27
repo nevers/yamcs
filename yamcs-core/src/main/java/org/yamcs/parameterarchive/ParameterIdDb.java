@@ -125,11 +125,24 @@ public class ParameterIdDb {
         }
     }
 
-    static Value.Type getType(int x) {
-        if(x==0xFFFF) {
+    static Value.Type getEngType(int x) {
+        int et = x>>16;
+        if(et==0xFFFF) {
             return null;
         }
-        else return Value.Type.valueOf(x);
+        else return Value.Type.valueOf(et);
+    }
+    
+    static Value.Type getRawType(int x) {
+        int rt = x&0xFFFF;
+        if(rt==0xFFFF) {
+            return null;
+        }
+        else return Value.Type.valueOf(rt);
+    }
+    
+    public int getTimeParameterId() {
+        return timeParameterId;
     }
 
     public void print(PrintStream out) {
@@ -138,9 +151,9 @@ public class ParameterIdDb {
             Map<Integer, Integer> m = p2pidCache.get(pname);
             for(Map.Entry<Integer, Integer> e: m.entrySet()) {
                 int parameterId = e.getValue();
-                int et = e.getKey()>>16;
-        int rt = e.getKey()&0xFFFF;
-        out.println("\t("+getType(et)+", "+getType(rt)+") -> "+parameterId);
+                int type = e.getKey();
+                
+                out.println("\t("+getEngType(type)+", "+getRawType(type)+") -> "+parameterId);
             }
         }
     }
@@ -200,10 +213,8 @@ public class ParameterIdDb {
 
         public ParameterId(int pid, int numericType) {
             this.pid = pid;
-            int et =  numericType>>16;
-            int rt =  numericType&0xFFFF;
-            this.engType = getType(et);
-            this.rawType = getType(rt);
+            this.engType = getEngType(numericType);
+            this.rawType = getRawType(numericType);
         }
 
         @Override

@@ -132,7 +132,9 @@ public class RdbTagDb implements TagDb {
     @Override
     public ArchiveTag updateTag(long tagTime, int tagId, ArchiveTag tag) throws YamcsException, IOException {
         try {
-            if(tagId<1) throw new YamcsException("Invalid or unexisting id");
+            if(tagId<1) {
+                throw new YamcsException("Invalid or unexisting id");
+            }
             db.remove(key(tagTime, tagId));
             ArchiveTag newTag=ArchiveTag.newBuilder(tag).setId(tagId).build();
             db.put(key(newTag), newTag.toByteArray());

@@ -26,8 +26,8 @@ public class RdbTagDb implements TagDb {
 
     static Logger log = LoggerFactory.getLogger(RdbTagDb.class);
 
-    final private Tablespace tablespace;
-    final static int __key_size = 16;
+    private final Tablespace tablespace;
+    static final int __key_size = 16;
     AtomicInteger idgenerator = new AtomicInteger(0);
     final String yamcsInstance;
     final int tbsIndex;
@@ -94,15 +94,13 @@ public class RdbTagDb implements TagDb {
         byte[] rangeStop;
         if(intv.hasEnd()) {
             rangeStop = new byte[TBS_INDEX_SIZE+8];
-            encodeInt(tbsIndex, rangeStart, 0);
+            encodeInt(tbsIndex, rangeStop, 0);
             encodeLong(intv.getEnd(), rangeStop, TBS_INDEX_SIZE);
         } else {
             rangeStop = new byte[TBS_INDEX_SIZE];
-            encodeInt(tbsIndex, rangeStart, 0);
+            encodeInt(tbsIndex, rangeStop, 0);
         }
         boolean strictStop = false;
-
-
         try(AscendingRangeIterator it = new AscendingRangeIterator(db.newIterator(), rangeStart, strictStart, rangeStop, strictStop)) {
             while (it.isValid()) {
                 ArchiveTag tag = ArchiveTag.parseFrom(it.value());
@@ -161,6 +159,7 @@ public class RdbTagDb implements TagDb {
             if (tagId < 1) {
                 throw new YamcsException("Invalid or unexisting id");
             }
+            tablespace.remove(key(tagTime, tagId));
             ArchiveTag newTag = ArchiveTag.newBuilder(tag).setId(tagId).build();
             tablespace.putData(key(newTag), newTag.toByteArray());
             return newTag;

@@ -9,6 +9,9 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.Test;
 import org.yamcs.archive.TagReceiver;
@@ -24,7 +27,7 @@ public class TagsTest extends YarchTestCase {
 
     @Test
     public void testTags() throws Exception {
-        final int n = 1000;
+        final int n = 4;
         tags = new ArrayList<ArchiveTag>(n + 4);
         String path = "/tmp/test_rdbtags";
         FileUtils.deleteRecursively(new File(path).toPath());
@@ -92,6 +95,12 @@ public class TagsTest extends YarchTestCase {
         checkRetrieval(-1, m / 3);
         checkRetrieval(m / 3, -1);
         checkRetrieval(m / 4, 2 * m / 4);
+        
+        tablespace.close();
+        tablespace.loadDb(false);
+        tagDb = new RdbTagDb("tagstest", tablespace);
+        checkRetrieval(-1, m / 3);
+
     }
 
     private int findId(String name) {
@@ -118,7 +127,7 @@ public class TagsTest extends YarchTestCase {
         if (k1 != -1) {
             start = tags.get(k1).getStart();
             intv.setStart(tags.get(k1).getStart());
-        }
+        } 
 
         if (k2 != -1) {
             stop = tags.get(k2).getStop();
@@ -127,33 +136,32 @@ public class TagsTest extends YarchTestCase {
 
         final long lo = start;
         final long hi = stop;
+        List<ArchiveTag> actual = new ArrayList<>();
         tagDb.getTags(intv, new TagReceiver() {
-
             int i = 0;
-
             @Override
             public void onTag(ArchiveTag tag) {
-                while (i < tags.size()) {
-                    if (tags.get(i).hasStop() && tags.get(i).getStop() < lo) {
-                        i++;
-                        continue;
-                    }
-                    if (tags.get(i).hasStart() && tags.get(i).getStart() > hi) {
-                        i++;
-                        continue;
-                    }
-                    break;
-                }
-
-                assertTrue(tag.hasId());
-                checkTag(tags.get(i), tag);
-                i++;
+                actual.add(tag);
             }
 
             @Override
             public void finished() {
             }
         });
+        List<ArchiveTag> expected = new ArrayList<>();
+        
+        for(int i=0; i<tags.size(); i++) {
+            ArchiveTag tag = tags.get(i);
+            if (tag.hasStop() && tag.getStop() < lo) {
+                continue;
+            }
+            if (tag.hasStart() && tag.getStart() > hi) {
+                continue;
+            }
+            expected.add(tag);
+        }
+       
+        assertEquals(expected.size(), actual.size());
     }
 
     private void checkTag(ArchiveTag tag, ArchiveTag rtag) {

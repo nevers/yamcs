@@ -55,8 +55,8 @@ public class RdbStorageEngine implements StorageEngine {
     @Override
     public void loadTable(YarchDatabaseInstance ydb, TableDefinition tbl) throws YarchException {
         if(!ignoreVersionIncompatibility) {
-        log.warn("You are using the old rocksdb storage engine for table {}. This is deprecated and it will be removed from future versions. "
-                + "Please upgrade using \"yamcs archive upgrade\" command", tbl.getName());
+            log.warn("You are using the old rocksdb storage engine for table {}. This is deprecated and it will be removed from future versions. "
+                + "Please upgrade using \"yamcs archive upgrade --instance "+ydb.getYamcsInstance()+"\" command", tbl.getName());
         }
         if(tbl.hasPartitioning()) {
             RdbPartitionManager pm = new RdbPartitionManager(ydb, tbl);
@@ -148,6 +148,10 @@ public class RdbStorageEngine implements StorageEngine {
 
     @Override
     public synchronized TagDb getTagDb(YarchDatabaseInstance ydb) throws YarchException {
+        if(!ignoreVersionIncompatibility) {
+            log.warn("You are using the old rocksdb storage engine for the tag database. This is deprecated and it will be removed from future versions. "
+                + "Please upgrade using \"yamcs archive upgrade --instance {}\" command", ydb.getYamcsInstance());
+        }
         RdbTagDb rdbTagDb = tagDbs.get(ydb.getName());
         if(rdbTagDb==null) {
             try {

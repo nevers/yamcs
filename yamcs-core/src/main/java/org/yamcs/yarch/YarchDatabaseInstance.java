@@ -358,7 +358,12 @@ public class YarchDatabaseInstance {
     }
 
     public TagDb getTagDb() throws YarchException {
-        return YarchDatabase.getDefaultStorageEngine().getTagDb(this);
+        File f = new File(getRoot()+"/tags");
+        if(f.exists()) {
+            return org.yamcs.yarch.oldrocksdb.RdbStorageEngine.getInstance().getTagDb(this);
+        } else {
+            return YarchDatabase.getDefaultStorageEngine().getTagDb(this);
+        }
     }
 
     public TimePartitionSchema getDefaultPartitioningSchema() {

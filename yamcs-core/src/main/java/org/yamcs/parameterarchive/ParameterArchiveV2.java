@@ -63,7 +63,11 @@ public class ParameterArchiveV2 extends AbstractService {
     private BackFiller backFiller;
     private RealtimeArchiveFiller realtimeFiller;
     static StringColumnFamilySerializer cfSerializer = new StringColumnFamilySerializer();
-
+    Map<String, Object> realtimeFillerConfig;
+    Map<String, Object> backFillerConfig;
+    boolean realtimeFillerEnabled;
+    boolean backFillerEnabled;
+    
     public ParameterArchiveV2(String instance, Map<String, Object> args) throws IOException, RocksDBException {
         this.yamcsInstance = instance;
         this.timeService = YamcsServer.getTimeService(instance);
@@ -126,22 +130,14 @@ public class ParameterArchiveV2 extends AbstractService {
     private void processConfig(Map<String, Object> args) {
         for (String s : args.keySet()) {
             if ("backFiller".equals(s)) {
-                Map<String, Object> backFillerConfig = YConfiguration.getMap(args, s);
-                boolean backFillerEnabled = true;
+                 backFillerConfig = YConfiguration.getMap(args, s);
                 log.debug("backFillerConfig: {}", backFillerConfig);
-                if (backFillerConfig.containsKey("enabled")) {
-                    backFillerEnabled = YConfiguration.getBoolean(backFillerConfig, "enabled");
-                }
-                if (backFillerEnabled) {
-                    backFiller = new BackFiller(this, backFillerConfig);
-                }
+                backFillerEnabled = YConfiguration.getBoolean(backFillerConfig, "enabled", true);
             } else if ("realtimeFiller".equals(s)) {
-                Map<String, Object> realtimeFillerConfig = YConfiguration.getMap(args, s);
-                boolean realtimeFillerEnabled = YConfiguration.getBoolean(realtimeFillerConfig, "enabled", false);
+                realtimeFillerConfig = YConfiguration.getMap(args, s);
+                realtimeFillerEnabled = YConfiguration.getBoolean(realtimeFillerConfig, "enabled", false);
                 log.debug("realtimeFillerConfig: {}", realtimeFillerConfig);
-                if (realtimeFillerEnabled) {
-                    realtimeFiller = new RealtimeArchiveFiller(this, realtimeFillerConfig);
-                }
+                
             }  else if ("partitioningSchema".equals(s)) {
                 String schema = YConfiguration.getString(args,  s);
                 if("none".equalsIgnoreCase(schema)) {
@@ -164,11 +160,13 @@ public class ParameterArchiveV2 extends AbstractService {
         try (AscendingRangeIterator it = new AscendingRangeIterator(db.newIterator(), range, false, range, false)) {
             while (it.isValid()) {
                 TimeBasedPartition tbp = TimeBasedPartition.parseFrom(it.value());
+                System.out.println("tbp :"+tbp);
                 Partition p = new Partition(tbp.getPartitionStart(), tbp.getPartitionEnd(), tbp.getPartitionDir());
-                p = partitions.insert(p, 0);
-                if (p == null) {
+                Partition p1 = partitions.insert(p, 0);
+                if (p1 == null) {
                     throw new DatabaseCorruptionException("Partition " + p + " overlaps with existing partitions");
                 }
+                it.next();
             }
         }
     }
@@ -297,6 +295,7 @@ public class ParameterArchiveV2 extends AbstractService {
                 ByteArrayUtils.encodeInt(partitionTbsIndex, key, 0);
                 ByteArrayUtils.encodeLong(pinfo.getStart(), key, TBS_INDEX_SIZE);
                 tablespace.putData(key, tbp.toByteArray());
+                System.out.println("------------- created partition "+p);
             }
             return p;
         }
@@ -334,10 +333,12 @@ public class ParameterArchiveV2 extends AbstractService {
 
     @Override
     protected void doStart() {
-        if (backFiller != null) {
+        if (backFillerEnabled) {
+            backFiller = new BackFiller(this, backFillerConfig);
             backFiller.start();
         }
-        if (realtimeFiller != null) {
+        if(realtimeFillerEnabled) {
+            realtimeFiller = new RealtimeArchiveFiller(this, realtimeFillerConfig);
             realtimeFiller.start();
         }
         notifyStarted();
