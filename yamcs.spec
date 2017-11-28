@@ -54,10 +54,6 @@ cp -a yamcs-api/src/main/*.proto %{buildroot}/%{prefix}/lib/
 cp -a yamcs-web/build/*  %{buildroot}/%{prefix}/web/
 %endif
 
-rm yamcs-simulation/target/yamcs-*-sources.jar
-cp -a yamcs-simulation/target/*jar %{buildroot}/%{prefix}/lib/
-cp -a yamcs-simulation/bin %{buildroot}/%{prefix}/
-
 
 %clean
 rm -rf %{buildroot}

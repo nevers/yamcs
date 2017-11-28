@@ -55,7 +55,9 @@ public class Tuple {
     
     public ColumnDefinition getColumnDefinition(String colName) {
         int i=definition.getColumnIndex(colName);
-        if(i==-1) throw new IllegalArgumentException("invalid column "+colName);
+        if(i==-1) {
+            throw new IllegalArgumentException("invalid column "+colName);
+        }
         return definition.getColumn(i);
     }
     
