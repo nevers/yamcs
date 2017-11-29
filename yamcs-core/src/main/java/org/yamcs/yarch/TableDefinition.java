@@ -65,7 +65,8 @@ public class TableDefinition {
         IN_KEY, COLUMN_FAMILY
     }
 
-    private PartitionStorage partitionStorage = PartitionStorage.IN_KEY;
+    @Deprecated
+    private PartitionStorage partitionStorage;
 
     private final TupleDefinition keyDef;
 
