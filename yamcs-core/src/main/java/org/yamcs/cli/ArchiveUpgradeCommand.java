@@ -112,7 +112,7 @@ public class ArchiveUpgradeCommand extends Command {
     }
 
     private void upgrade0_1(YarchDatabaseInstance ydb, TableDefinition tblDef) throws Exception  {
-        log.info("upgrading table {}/{} from version 0 to version 1", ydb.getName(), tblDef.getName());
+        console.println("upgrading table "+ydb.getName()+"/"+tblDef.getName()+" from version 0 to version 1");
         if("pp".equals(tblDef.getName())) {
             changePpGroup(ydb, tblDef);
         }
@@ -123,7 +123,7 @@ public class ArchiveUpgradeCommand extends Command {
     }
 
     private void upgrade1_2(YarchDatabaseInstance ydb, TableDefinition tblDef) {
-        log.info("upgrading table {}/{} from version 1 to version 2", ydb.getName(), tblDef.getName());
+        console.println("upgrading table "+ydb.getName()+"/"+tblDef.getName()+" from version 1 to version 2");
         if("pp".equals(tblDef.getName())) {
             changeParaValueType(tblDef);
         }
@@ -156,7 +156,7 @@ public class ArchiveUpgradeCommand extends Command {
     }
 
     private void upgradeRocksDBTable(YarchDatabaseInstance ydb, TableDefinition tblDef) throws InterruptedException, IOException {
-        log.info("Upgrading {} to new RocksDB storage engine", tblDef.getName());
+        console.println("upgrading table "+ydb.getName()+"/"+tblDef.getName()+ "to new RocksDB storage engine");
         RdbStorageEngine newRse = RdbStorageEngine.getInstance();
         newRse.createTable(ydb, tblDef);
 
@@ -185,7 +185,7 @@ public class ArchiveUpgradeCommand extends Command {
         });
         stream.start();
         semaphore.acquire();
-        log.info("{} upgrade finished: converted {} tuples", tblDef.getName(), count);
+        console.println(ydb.getName()+"/"+tblDef.getName()+" upgrade finished: converted "+count+" tuples");
         RdbPartitionManager pm = oldRse.getPartitionManager(tblDef);
         for(Partition p: pm.getPartitions()) {
             RdbPartition rp = (RdbPartition) p;
@@ -200,7 +200,7 @@ public class ArchiveUpgradeCommand extends Command {
         if(!f.exists()) {
             return;
         }
-        log.info("{}: upgrading parameter archive");
+        console.println(instance+": upgrading parameter archive");
         ParameterArchiveV2 newparch = new ParameterArchiveV2(instance);
         org.yamcs.oldparchive.ParameterArchive oldparch = new org.yamcs.oldparchive.ParameterArchive(instance);
         RdbStorageEngine rse = RdbStorageEngine.getInstance();
@@ -208,7 +208,7 @@ public class ArchiveUpgradeCommand extends Command {
         org.yamcs.oldparchive.ParameterIdDb oldParaIdDb = oldparch.getParameterIdDb();
         ParameterIdDb newParaIdDb = newparch.getParameterIdDb();
         
-        log.debug("creating parameter ids in the tablespace {} ", tablespace.getName());
+        console.println("creating parameter ids in the tablespace "+ tablespace.getName());
         Map<Integer, Integer> oldToNewParaId = new HashMap<>();
 
         oldToNewParaId.put(org.yamcs.oldparchive.ParameterIdDb.TIMESTAMP_PARA_ID, newParaIdDb.getTimeParameterId());
@@ -223,7 +223,7 @@ public class ArchiveUpgradeCommand extends Command {
                 oldToNewParaId.put(oldParamId, newParamId);
             }
         }
-        log.debug("creating parameter groups in the tablespace {} ", tablespace.getName());
+        console.println("creating parameter groups in the tablespace "+ tablespace.getName());
         org.yamcs.oldparchive.ParameterGroupIdDb oldParaGroupIdDb = oldparch.getParameterGroupIdDb();
         ParameterGroupIdDb newParaGroupIdDb = newparch.getParameterGroupIdDb();
         Map<SortedIntArray, Integer> oldGroups = oldParaGroupIdDb.getMap();
@@ -234,7 +234,7 @@ public class ArchiveUpgradeCommand extends Command {
             int newGroupId = newParaGroupIdDb.createAndGet(s);
             oldToNewGroupId.put(e.getValue(), newGroupId);
         }
-        log.debug("migrating the ParameterArchive data");
+        console.println(instance+": migrating the ParameterArchive data");
         int segCount = 0;
         for(org.yamcs.oldparchive.ParameterArchive.Partition oldpart:oldparch.getPartitions()) {
             try(RocksIterator it=oldparch.getIterator(oldpart)) {
@@ -249,13 +249,13 @@ public class ArchiveUpgradeCommand extends Command {
                     tablespace.getRdb(newpart.getPartitionDir(), false).put(newkey.encode(), val);
                     segCount++;
                     if(segCount%1000==0) {
-                        log.info("{}:ParameterArchive migrated {} segments", instance, segCount);
+                        console.println(instance+": ParameterArchive migrated "+segCount+" segments");
                     }
                     it.next();
                 }
             }
         }
-        log.info("{}:ParameterArchive migration finished, migrated {} segments", instance, segCount);
+        console.println(instance+": ParameterArchive migration finished, migrated "+segCount+" segments");
         
         
         File f1 = new File(ydb.getRoot()+"/ParameterArchive.old");
@@ -267,6 +267,7 @@ public class ArchiveUpgradeCommand extends Command {
     }
     
     private void upgradeTagsDb(String instance) throws Exception {
+        console.println(instance+": Migrating TagDB");
         YarchDatabaseInstance ydb = YarchDatabase.getInstance(instance);
         File f = new File(ydb.getRoot()+"/tags");
         if(!f.exists()) {
@@ -301,7 +302,7 @@ public class ArchiveUpgradeCommand extends Command {
         }
         filesToRemove.write("rm -rf "+f1.getAbsolutePath()+"\n");
         filesToRemoveCount++;
-        log.info("{}:TagDB migration finished, migrated {} tags", instance, count);
+        console.println(instance+": TagDB migration finished, migrated "+count+" tags");
         
     }
 }
