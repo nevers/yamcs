@@ -75,7 +75,7 @@ public class CommandVerificationHandler {
             if(scheduleNow) {
                 scheduleVerifier(verifier, checkWindow.getTimeToStartChecking(), checkWindow.getTimeToStopChecking());
             }
-
+            prevVerifier = verifier;
         }
     }
 
