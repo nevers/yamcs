@@ -59,6 +59,7 @@ public class CfTableWriter extends AbstractTableWriter {
 
             switch (mode) {
             case INSERT:
+            case LOAD:
                 inserted = insert(db, partition, t);
                 break;
             case UPSERT:

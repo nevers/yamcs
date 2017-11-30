@@ -70,6 +70,8 @@ public class RdbTableWriter extends TableWriter {
                 inserted = upsertAppend(db, partition, t);
                 updated = !inserted;
                 break;
+            case LOAD:
+                inserted = load(db, partition, t);;
             }
 
             if (inserted && tableDefinition.hasHistogram()) {
@@ -86,7 +88,14 @@ public class RdbTableWriter extends TableWriter {
         }
 
     }
+    private boolean load(YRDB db, RdbPartition partition, Tuple t) throws RocksDBException {
+        byte[] k = getPartitionKey(partition, tableDefinition.serializeKey(t));
+        byte[] v = tableDefinition.serializeValue(t);
 
+        db.put(k, v);
+        return true;
+    }
+    
     private boolean insert(YRDB db, RdbPartition partition, Tuple t) throws RocksDBException {
         byte[] k = getPartitionKey(partition, tableDefinition.serializeKey(t));
         byte[] v = tableDefinition.serializeValue(t);

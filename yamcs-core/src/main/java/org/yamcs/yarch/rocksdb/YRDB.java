@@ -161,10 +161,7 @@ public class YRDB {
         db.put(cfh, k, v);
     }
 
-    public void put(byte[] k, byte[] v) throws RocksDBException {
-        if(k.length==1) {
-            new Exception().printStackTrace();
-        }
+    public void put(byte[] k, byte[] v) throws RocksDBException {        
         db.put(k, v);
     }
     public List<byte[]> getColumnFamilies() {

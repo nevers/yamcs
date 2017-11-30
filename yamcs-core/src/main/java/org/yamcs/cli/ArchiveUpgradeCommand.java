@@ -163,7 +163,7 @@ public class ArchiveUpgradeCommand extends Command {
         org.yamcs.yarch.oldrocksdb.RdbStorageEngine oldRse = org.yamcs.yarch.oldrocksdb.RdbStorageEngine.getInstance();
         Stream stream = oldRse.newTableReaderStream(ydb, tblDef, true, false);
 
-        TableWriter tw = newRse.newTableWriter(ydb, tblDef, InsertMode.INSERT);
+        TableWriter tw = newRse.newTableWriter(ydb, tblDef, InsertMode.LOAD);
         stream.addSubscriber(tw);
         Semaphore semaphore = new Semaphore(0);
         AtomicInteger count = new AtomicInteger();
