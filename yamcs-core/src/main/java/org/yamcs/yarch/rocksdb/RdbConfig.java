@@ -11,6 +11,7 @@ import org.rocksdb.BloomFilter;
 import org.rocksdb.ColumnFamilyOptions;
 import org.rocksdb.DBOptions;
 import org.rocksdb.Env;
+import org.rocksdb.IndexType;
 import org.rocksdb.Options;
 import org.yamcs.ConfigurationException;
 import org.yamcs.YConfiguration;
@@ -27,12 +28,12 @@ public class RdbConfig {
     static private RdbConfig instance = new RdbConfig();
     public static final String KEY_RDB_CONFIG = "rdbConfig";
     public static final String KEY_TABLE_CONFIG = "tableConfig";
-    public static final String KEY_CF_OPTIONS = "columnFamilyOptions";
-    public static final String KEY_TABLE_NAME_PATTERN = "tableNamePattern";
+    public static final String KEY_OPTIONS = "options";
+    public static final String KEY_TABLESPACE_NAME_PATTERN = "tablespaceNamePattern";
     public static final String KEY_TF_CONFIG = "tableFormatConfig";
     public static final int DEFAULT_MAX_OPEN_FILES = 1000;
     
-    private List<TableConfig> tblConfigList = new ArrayList<>();
+    private List<TablespaceConfig> tblConfigList = new ArrayList<>();
     final Env env;
     final ColumnFamilyOptions defaultColumnFamilyOptions;
     final Options defaultOptions;
@@ -56,7 +57,7 @@ public class RdbConfig {
                     if(!(o instanceof Map)) {
                         throw new ConfigurationException("Error in rdbConfig -> tableConfig in yamcs.yaml: the entries of tableConfig have to be maps");
                     }
-                    TableConfig tblConf = new TableConfig( (Map<String, Object>)o);
+                    TablespaceConfig tblConf = new TablespaceConfig( (Map<String, Object>)o);
                     tblConfigList.add(tblConf);
                 }
             }
@@ -65,11 +66,11 @@ public class RdbConfig {
         env = Env.getDefault();
         defaultColumnFamilyOptions = new ColumnFamilyOptions();
         
-        
         BlockBasedTableConfig tableFormatConfig = new BlockBasedTableConfig();
         tableFormatConfig.setBlockSize(256*1024);//256KB
         tableFormatConfig.setBlockCacheSize(100l*1024*1024);//50MB
         tableFormatConfig.setFilter(new BloomFilter());
+        tableFormatConfig.setIndexType(IndexType.kTwoLevelIndexSearch);
         
         defaultOptions = new Options();
         defaultOptions.setWriteBufferSize(50*1024*1024);//50MB
@@ -77,6 +78,7 @@ public class RdbConfig {
         defaultOptions.setCreateIfMissing(true);
         defaultOptions.setTableFormatConfig(tableFormatConfig);
         defaultOptions.useFixedLengthPrefixExtractor(4);
+        
         
         defaultDBOptions = new DBOptions().setCreateIfMissing(true);
         
@@ -114,8 +116,8 @@ public class RdbConfig {
      * @return the first table config that matches the table name or null if no config matches
      * 
      */
-    public TableConfig getTableConfig(String tableName) {
-        for(TableConfig tc: tblConfigList) {
+    public TablespaceConfig getTableConfig(String tableName) {
+        for(TablespaceConfig tc: tblConfigList) {
             if(tc.tableNamePattern.matcher(tableName).matches()) {
                 return tc;
             }
@@ -123,7 +125,7 @@ public class RdbConfig {
         return null;
     }
     
-    public static class TableConfig {
+    public static class TablespaceConfig {
         Pattern tableNamePattern;
         ColumnFamilyOptions cfOptions = new ColumnFamilyOptions();
         //these options are used for the default column family when the database is open
@@ -133,8 +135,8 @@ public class RdbConfig {
         
         long targetFileSizeBase;
         
-        TableConfig(Map<String, Object> m) throws ConfigurationException {
-            String s = YConfiguration.getString(m, KEY_TABLE_NAME_PATTERN);
+        TablespaceConfig(Map<String, Object> m) throws ConfigurationException {
+            String s = YConfiguration.getString(m, KEY_TABLESPACE_NAME_PATTERN);
             try {
                 tableNamePattern = Pattern.compile(s);
             } catch (PatternSyntaxException e) {
@@ -148,34 +150,27 @@ public class RdbConfig {
             options.setMaxOpenFiles(maxOpenFiles);
             dboptions.setMaxOpenFiles(maxOpenFiles);
             
-            if(m.containsKey(KEY_CF_OPTIONS)) {
-                Map<String, Object> cm = YConfiguration.getMap(m, KEY_CF_OPTIONS);
+            if(m.containsKey(KEY_OPTIONS)) {
+                Map<String, Object> cm = YConfiguration.getMap(m, KEY_OPTIONS);
                 if(cm.containsKey("targetFileSizeBase")) {
-                    cfOptions.setTargetFileSizeBase(1024 * YConfiguration.getLong(cm, "targetFileSizeBase"));
                     options.setTargetFileSizeBase(1024 * YConfiguration.getLong(cm, "targetFileSizeBase"));
                 }
                 if(cm.containsKey("targetFileSizeMultiplier")) {
-                    cfOptions.setTargetFileSizeMultiplier(YConfiguration.getInt(cm, "targetFileSizeMultiplier"));
                     options.setTargetFileSizeMultiplier(YConfiguration.getInt(cm, "targetFileSizeMultiplier"));
                 }
                 if(cm.containsKey("maxBytesForLevelBase")) {
-                    cfOptions.setMaxBytesForLevelBase(1024 * YConfiguration.getLong(cm, "maxBytesForLevelBase"));
                     options.setMaxBytesForLevelBase(1024 * YConfiguration.getLong(cm, "maxBytesForLevelBase"));
                 }
                 if(cm.containsKey("writeBufferSize")) {
-                    cfOptions.setWriteBufferSize(1024 * YConfiguration.getLong(cm, "writeBufferSize"));
                     options.setWriteBufferSize(1024 * YConfiguration.getLong(cm, "writeBufferSize"));
                 }
                 if(cm.containsKey("maxBytesForLevelMultiplier")) {
-                    cfOptions.setMaxBytesForLevelMultiplier(YConfiguration.getInt(cm, "maxBytesForLevelMultiplier"));
                     options.setMaxBytesForLevelMultiplier(YConfiguration.getInt(cm, "maxBytesForLevelMultiplier"));
                 }
                 if(cm.containsKey("maxWriteBufferNumber")) {
-                    cfOptions.setMaxWriteBufferNumber(YConfiguration.getInt(cm, "maxWriteBufferNumber"));
                     options.setMaxWriteBufferNumber(YConfiguration.getInt(cm, "maxWriteBufferNumber"));
                 }
                 if(cm.containsKey("minWriteBufferNumberToMerge")) {
-                    cfOptions.setMinWriteBufferNumberToMerge(YConfiguration.getInt(cm, "minWriteBufferNumberToMerge"));
                     options.setMinWriteBufferNumberToMerge(YConfiguration.getInt(cm, "minWriteBufferNumberToMerge"));
                 }
                 
@@ -191,8 +186,11 @@ public class RdbConfig {
                     if(tfc.containsKey("noBlockCache")) {
                         tableFormatConfig.setNoBlockCache(YConfiguration.getBoolean(tfc, "noBlockCache"));
                     }
+                   
+                    boolean partitionedIndex = YConfiguration.getBoolean(tfc, "partitionedIndex", true);
+                    tableFormatConfig.setIndexType(partitionedIndex?IndexType.kTwoLevelIndexSearch:IndexType.kBinarySearch);
+                    
                     options.setTableFormatConfig(tableFormatConfig);
-                    cfOptions.setTableFormatConfig(tableFormatConfig);
                    
                 }
                 options.useFixedLengthPrefixExtractor(4);

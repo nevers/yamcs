@@ -22,7 +22,7 @@ import org.rocksdb.RocksDBException;
 import org.rocksdb.RocksIterator;
 import org.yamcs.utils.ByteArrayWrapper;
 import org.yamcs.utils.StringConverter;
-import org.yamcs.yarch.rocksdb.RdbConfig.TableConfig;
+import org.yamcs.yarch.rocksdb.RdbConfig.TablespaceConfig;
 /**
  * wrapper around RocksDB that keeps track of column families.
  * It also maintains a reference count and last access timeused by the RdbFactory to close the database if
@@ -68,7 +68,7 @@ public class YRDB {
             }
         }
         RdbConfig rdbConfig = RdbConfig.getInstance();
-        TableConfig tc = rdbConfig.getTableConfig(f.getName());
+        TablespaceConfig tc = rdbConfig.getTableConfig(f.getName());
         cfoptions = (tc==null)? rdbConfig.getDefaultColumnFamilyOptions():tc.getColumnFamilyOptions();
         Options opt = (tc==null)? rdbConfig.getDefaultOptions():tc.getOptions();
         dbOptions = (tc==null)? rdbConfig.getDefaultDBOptions():tc.getDBOptions();
