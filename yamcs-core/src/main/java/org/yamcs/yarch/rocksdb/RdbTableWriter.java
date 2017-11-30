@@ -71,7 +71,7 @@ public class RdbTableWriter extends TableWriter {
                 updated = !inserted;
                 break;
             case LOAD:
-                inserted = load(db, partition, t);;
+                inserted = load(db, partition, t);
             }
 
             if (inserted && tableDefinition.hasHistogram()) {

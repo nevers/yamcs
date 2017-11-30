@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksIterator;
@@ -155,7 +156,7 @@ public class ArchiveUpgradeCommand extends Command {
         hrb.rebuild(new TimeInterval()).get();
     }
 
-    private void upgradeRocksDBTable(YarchDatabaseInstance ydb, TableDefinition tblDef) throws InterruptedException, IOException {
+    private void upgradeRocksDBTable(YarchDatabaseInstance ydb, TableDefinition tblDef) throws Exception {
         console.println("upgrading table "+ydb.getName()+"/"+tblDef.getName()+ "to new RocksDB storage engine");
         RdbStorageEngine newRse = RdbStorageEngine.getInstance();
         newRse.createTable(ydb, tblDef);
@@ -178,13 +179,26 @@ public class ArchiveUpgradeCommand extends Command {
             @Override
             public void onTuple(Stream stream, Tuple tuple) {
                 c++;
-                if(c%10000 ==0) {
-                    log.info("{} saved {} tuples", tblDef.getName(), c);
+                if(c%100000 ==0) {
+                    console.println(tblDef.getName()+" saved "+c+" tuples");
                 }
             }
         });
+        AtomicReference<Throwable> exception = new AtomicReference<>();
+        stream.exceptionHandler((s, tuple, t1) ->{
+            console.print("Error saving tuple "+tuple);
+            exception.set(t1);
+        });
         stream.start();
         semaphore.acquire();
+        Throwable t = exception.get();
+        if(t!=null) {
+            if(t instanceof Exception) {
+                throw (Exception)t;
+            } else {
+                throw new Exception(t);
+            }
+        }
         console.println(ydb.getName()+"/"+tblDef.getName()+" upgrade finished: converted "+count+" tuples");
         RdbPartitionManager pm = oldRse.getPartitionManager(tblDef);
         for(Partition p: pm.getPartitions()) {
