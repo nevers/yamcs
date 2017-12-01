@@ -97,7 +97,7 @@ class RocksdbBenchmark extends Command {
 
             ydb.createTable(tblDef);
         } else {
-            console.println("Table "+tableName+" already exists!. Populating with new data.");
+            console.println("Table "+tableName+" already exists!. Old data will not be overwritten.");
         }
         populate(tblDef, durationHours*36000);
         
@@ -119,7 +119,7 @@ class RocksdbBenchmark extends Command {
         TableWriter tw = rse.newTableWriter(ydb, tblDef, InsertMode.INSERT);
 
         long baseTime = TimeEncoding.parse("2017-01-01T00:00:00");
-        console.println("starting to write "+durationHours+" hours of data starting with "+TimeEncoding.toString(baseTime));
+        console.println("writing "+durationHours+" hours of data starting with "+TimeEncoding.toString(baseTime));
         ThreadLocalRandom r = ThreadLocalRandom.current();
         byte[] b = new byte[256];
         int numPackets = 0;
