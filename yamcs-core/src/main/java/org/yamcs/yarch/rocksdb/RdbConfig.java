@@ -27,7 +27,7 @@ import org.yamcs.YConfiguration;
 public class RdbConfig {
     static private RdbConfig instance = new RdbConfig();
     public static final String KEY_RDB_CONFIG = "rdbConfig";
-    public static final String KEY_TABLE_CONFIG = "tableConfig";
+    public static final String KEY_TABLESPACE_CONFIG = "tablespaceConfig";
     public static final String KEY_OPTIONS = "options";
     public static final String KEY_TABLESPACE_NAME_PATTERN = "tablespaceNamePattern";
     public static final String KEY_TF_CONFIG = "tableFormatConfig";
@@ -51,8 +51,8 @@ public class RdbConfig {
         YConfiguration config = YConfiguration.getConfiguration("yamcs");
         if(config.containsKey(KEY_RDB_CONFIG)) {
             Map<String, Object> rdbOptions = config.getMap(KEY_RDB_CONFIG);
-            if(rdbOptions.containsKey(KEY_TABLE_CONFIG)) {
-                List<Object> tableConfigs = YConfiguration.getList(rdbOptions, KEY_TABLE_CONFIG);
+            if(rdbOptions.containsKey(KEY_TABLESPACE_CONFIG)) {
+                List<Object> tableConfigs = YConfiguration.getList(rdbOptions, KEY_TABLESPACE_CONFIG);
                 for(Object o: tableConfigs) {
                     if(!(o instanceof Map)) {
                         throw new ConfigurationException("Error in rdbConfig -> tableConfig in yamcs.yaml: the entries of tableConfig have to be maps");
@@ -116,7 +116,7 @@ public class RdbConfig {
      * @return the first table config that matches the table name or null if no config matches
      * 
      */
-    public TablespaceConfig getTableConfig(String tableName) {
+    public TablespaceConfig getTablespaceConfig(String tableName) {
         for(TablespaceConfig tc: tblConfigList) {
             if(tc.tableNamePattern.matcher(tableName).matches()) {
                 return tc;
