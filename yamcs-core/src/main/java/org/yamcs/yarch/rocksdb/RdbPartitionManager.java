@@ -196,7 +196,7 @@ public class RdbPartitionManager extends PartitionManager {
     @Override
     protected HistogramInfo createHistogram(String columnName)  throws IOException {
         try {
-            TablespaceRecord.Builder trb = TablespaceRecord.newBuilder().setTableName(tableDefinition.getName())
+            TablespaceRecord.Builder trb = TablespaceRecord.newBuilder().setType(Type.HISTOGRAM).setTableName(tableDefinition.getName())
                     .setHistogramColumnName(columnName);
             TablespaceRecord tr = tablespace.createMetadataRecord(ydb.getName(), trb);
             return new RdbHistogramInfo(tr.getTbsIndex(), columnName, null);                       

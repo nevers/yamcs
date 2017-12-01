@@ -33,7 +33,9 @@ public class YarchDatabase {
 
     static {
         config = YConfiguration.getConfiguration("yamcs");
-        home = config.getString("dataDir");
+        if(config.containsKey("dataDir")) {
+            home = config.getString("dataDir");
+        }
 
         List<String> se;
         if (config.containsKey("storageEngines")) {
@@ -70,14 +72,9 @@ public class YarchDatabase {
     /**
      * 
      * @param yamcsInstance
-     * @param ignoreVersionIncompatibility
-     *            - if set to true, the created StorageEngines will load old
-     *            data (as far as possible). Used only when upgrading from old
-     *            data formats to new ones.
      * 
      */
-    public static synchronized YarchDatabaseInstance getInstance(String yamcsInstance,
-            boolean ignoreVersionIncompatibility) {
+    public static synchronized YarchDatabaseInstance getInstance(String yamcsInstance) {
         YarchDatabaseInstance instance = databases.get(yamcsInstance);
         if (instance == null) {
             try {
@@ -88,10 +85,6 @@ public class YarchDatabase {
             databases.put(yamcsInstance, instance);
         }
         return instance;
-    }
-
-    static public YarchDatabaseInstance getInstance(String yamcsInstance) {
-        return getInstance(yamcsInstance, false);
     }
 
     static public boolean hasInstance(String dbname) {

@@ -26,35 +26,30 @@ import static org.yamcs.yarch.rocksdb.RdbStorageEngine.TBS_INDEX_SIZE;
 
 /**
  * 
- * Tablespaces are rocksdb databases normally stored in the yamcs data directory
- * (/storage/yamcs-data). Each corresponds to a directory <tablespace-name>.rdb
- * and has a definition file tablespace-name.tbs.
+ * Tablespaces are rocksdb databases normally stored in the yamcs data directory (/storage/yamcs-data). Each corresponds
+ * to a directory <tablespace-name>.rdb and has a definition file tablespace-name.tbs.
  * 
- * Tablespaces can also have time based partitions in different RocksDB
- * databases in sub-directories such as <tablespace-name>.rdb/YYYY/
+ * Tablespaces can also have time based partitions in different RocksDB databases in sub-directories such as
+ * <tablespace-name>.rdb/YYYY/
  * 
- * There are two column families in the main database: - the _metadata_ column
- * family - contains metadata. - the default column family - contains data.
+ * There are two column families in the main database: - the _metadata_ column family - contains metadata. - the default
+ * column family - contains data.
  * 
- * The data is partitioned by the first 4 bytes of the key which we call
- * tbsIndex.
+ * The data is partitioned by the first 4 bytes of the key which we call tbsIndex.
  * 
- * One tbsIndex corresponds to a so called tablespace record. For example
- * tbsIndex=5 can correspond to all telemetry packets for packet XYZ.
+ * One tbsIndex corresponds to a so called tablespace record. For example tbsIndex=5 can correspond to all telemetry
+ * packets for packet XYZ.
  * 
- * Except for the 4 bytes tbsIndex, the rest of the key and value are completely
- * dependent on the data type. For example for yarch table data, the rest of key
- * following the 4 bytes tbsIndex represents the key of the row in the table.
+ * Except for the 4 bytes tbsIndex, the rest of the key and value are completely dependent on the data type. For example
+ * for yarch table data, the rest of key following the 4 bytes tbsIndex represents the key of the row in the table.
  * 
- * The metadata contains two types of records, identified by the first byte of
- * the key: - key: 0x1 value: 1 byte version number (0x1), 4 bytes max tbsIndex
- * used to store the max tbsIndex and also stores a version number in case the
- * format will change in the future
+ * The metadata contains two types of records, identified by the first byte of the key: - key: 0x1 value: 1 byte version
+ * number (0x1), 4 bytes max tbsIndex used to store the max tbsIndex and also stores a version number in case the format
+ * will change in the future
  * 
- * - key: 0x2, 1 byte record type, 4 bytes tbsIndex value: protobuf encoded
- * TablespaceRecord used to store what information corresponds to each tbsIndex
- * the record type corresponds to the Type enumerations from tablespace.proto In
- * tablespace.proto for a description of the possible record types.
+ * - key: 0x2, 1 byte record type, 4 bytes tbsIndex value: protobuf encoded TablespaceRecord used to store what
+ * information corresponds to each tbsIndex the record type corresponds to the Type enumerations from tablespace.proto
+ * In tablespace.proto for a description of the possible record types.
  * 
  * The metadata
  * 
@@ -107,7 +102,7 @@ public class Tablespace {
             }
 
             byte[] value = db.get(cfMetadata, METADATA_KEY_MAX_TBS_VERSION);
-            if(value==null) {
+            if (value == null) {
                 throw new DatabaseCorruptionException(
                         "No (version, maxTbsIndex) record found in the metadata");
             }
@@ -138,11 +133,9 @@ public class Tablespace {
     }
 
     /**
-     * Returns a list of all records of type TABLE_PARTITION for a given
-     * instance and table
+     * Returns a list of all records of type TABLE_PARTITION for a given instance and table
      * 
-     * If instanceName = tablespace name, it returns also records which do not
-     * have an instanceName specified.
+     * If instanceName = tablespace name, it returns also records which do not have an instanceName specified.
      */
     public List<TablespaceRecord> getTablePartitions(String instanceName, String tableName)
             throws RocksDBException, IOException {
@@ -150,11 +143,9 @@ public class Tablespace {
     }
 
     /**
-     * Returns a list of all records of type HISTOGRAM for a given instance and
-     * table
+     * Returns a list of all records of type HISTOGRAM for a given instance and table
      * 
-     * If instanceName = tablespace name, it returns also records which do not
-     * have an instanceName specified.
+     * If instanceName = tablespace name, it returns also records which do not have an instanceName specified.
      */
     public List<TablespaceRecord> getTableHistograms(String instanceName, String tableName)
             throws RocksDBException, IOException {
@@ -197,8 +188,7 @@ public class Tablespace {
      * Creates a new tablespace record and adds it to the metadata database
      * 
      * @param trb
-     *            - the builder has to have all fields set except for the
-     *            tbsIndex which will be assigned by this method
+     *            - the builder has to have all fields set except for the tbsIndex which will be assigned by this method
      * @return a fully built
      * @throws RocksDBException
      */
@@ -238,8 +228,8 @@ public class Tablespace {
     }
 
     /**
-     * (Creates) and returns a database in the given partition directory. If the
-     * directory is null, return then main tablespace db
+     * (Creates) and returns a database in the given partition directory. If the directory is null, return then main
+     * tablespace db
      * 
      * @param dir
      * @param readOnly
@@ -252,7 +242,7 @@ public class Tablespace {
             return rdbFactory.getRdb(partitionDir, readOnly);
         }
     }
-    
+
     public YRDB getRdb(String relativePath) throws IOException {
         return getRdb(relativePath, false);
     }
@@ -300,14 +290,11 @@ public class Tablespace {
     }
 
     /**
-     * the key to use in the metadata table. We currently use 6 bytes: 1 byte
-     * fixed 0xFF 4 bytes tbsIndex
+     * the key to use in the metadata table. We currently use 6 bytes: 1 byte fixed 0xFF 4 bytes tbsIndex
      * 
-     * in the future we may use a byte different than 0xFF to store the same
-     * data sorted differently
+     * in the future we may use a byte different than 0xFF to store the same data sorted differently
      *
-     * the reason for using 0xFF as the first byte is to get the highest
-     * tbsIndex by reading the last record.
+     * the reason for using 0xFF as the first byte is to get the highest tbsIndex by reading the last record.
      */
     private byte[] getMetadataKey(Type type, int tbsIndex) {
         byte[] key = new byte[6];

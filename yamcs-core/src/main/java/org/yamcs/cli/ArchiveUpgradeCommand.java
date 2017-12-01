@@ -21,7 +21,6 @@ import org.yamcs.parameterarchive.ParameterIdDb;
 import org.yamcs.parameterarchive.ParameterArchiveV2;
 import org.yamcs.parameterarchive.SegmentKey;
 import org.yamcs.protobuf.Yamcs.ArchiveTag;
-import org.yamcs.utils.ByteArrayUtils;
 import org.yamcs.utils.SortedIntArray;
 import org.yamcs.utils.TimeInterval;
 import org.yamcs.yarch.ColumnDefinition;
@@ -40,11 +39,8 @@ import org.yamcs.yarch.YarchException;
 import org.yamcs.yarch.oldrocksdb.HistogramRebuilder;
 import org.yamcs.yarch.oldrocksdb.RdbPartition;
 import org.yamcs.yarch.oldrocksdb.RdbPartitionManager;
-import org.yamcs.yarch.oldrocksdb.RdbTagDb;
 import org.yamcs.yarch.rocksdb.RdbStorageEngine;
 import org.yamcs.yarch.rocksdb.Tablespace;
-import org.yamcs.yarch.rocksdb.protobuf.Tablespace.TablespaceRecord;
-import org.yamcs.yarch.rocksdb.protobuf.Tablespace.TablespaceRecord.Type;
 
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
@@ -95,7 +91,7 @@ public class ArchiveUpgradeCommand extends Command {
     }
 
     private void upgradeYarchTables(String instance) throws Exception {
-        YarchDatabaseInstance ydb = YarchDatabase.getInstance(instance, true);
+        YarchDatabaseInstance ydb = YarchDatabase.getInstance(instance);
         for(TableDefinition tblDef: ydb.getTableDefinitions()) {
             if(tblDef.getFormatVersion()==0) {
                 upgrade0_1(ydb, tblDef);
