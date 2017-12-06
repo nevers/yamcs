@@ -4,6 +4,8 @@ import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Queue;
 import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 
 public class ServerConnection {
@@ -15,151 +17,156 @@ public class ServerConnection {
         CONNECTION_LOST
     }
 
-	private boolean connected = false;
-	private boolean signalStatus = false;
+    private boolean connected = false;
+    private boolean signalStatus = false;
 
-	private Socket tmSocket;
-	private Socket tcSocket;
-	private Socket losSocket;
+    private Socket tmSocket;
+    private Socket tcSocket;
+    private Socket losSocket;
 
-	private ServerSocket tmServerSocket;
-	private ServerSocket tcServerSocket;
-	private ServerSocket losServerSocket;
+    private ServerSocket tmServerSocket;
+    private ServerSocket tcServerSocket;
+    private ServerSocket losServerSocket;
 
-	private int tmPort;
-	private int tcPort;
-	private int losPort;
-		
-	private int id;
-	
-	Queue<CCSDSPacket> tmQueue = new ArrayBlockingQueue<>(1000);//no more than 100 pending commands
-	Queue<CCSDSPacket> tmDumpQueue = new ArrayBlockingQueue<>(1000);
+    private int tmPort;
+    private int tcPort;
+    private int losPort;
 
-	public ServerConnection(int id, int tmPort, int tcPort, int losPort) {
+    private int id;
+
+    BlockingQueue<CCSDSPacket> tmQueue = new LinkedBlockingQueue<>();//no more than 100 pending commands
+    Queue<CCSDSPacket> tmDumpQueue = new ArrayBlockingQueue<>(1000);
+
+    public ServerConnection(int id, int tmPort, int tcPort, int losPort) {
         this.id = id;
-		this.tmPort = tmPort;
-		this.tcPort = tcPort;
-		this.losPort = losPort;
-	}
-	
-	public Socket getTcSocket() {
-		return tcSocket;
-	}
+        this.tmPort = tmPort;
+        this.tcPort = tcPort;
+        this.losPort = losPort;
+    }
 
-	public void setTcSocket(Socket tcSocket) {
-		this.tcSocket = tcSocket;
-	}
+    public Socket getTcSocket() {
+        return tcSocket;
+    }
 
-	public Socket getTmSocket() {
-		return tmSocket;
-	}
+    public void setTcSocket(Socket tcSocket) {
+        this.tcSocket = tcSocket;
+    }
 
-	public void setTmSocket(Socket tmSocket) {
-		this.tmSocket = tmSocket;
-	}
-	
-	public int getTcPort() {
-		return tcPort;
-	}
+    public Socket getTmSocket() {
+        return tmSocket;
+    }
 
-	public void setTcPort(int tcPort) {
-		this.tcPort = tcPort;
-	}
+    public void setTmSocket(Socket tmSocket) {
+        this.tmSocket = tmSocket;
+    }
 
-	public int getTmPort() {
-		return tmPort;
-	}
+    public int getTcPort() {
+        return tcPort;
+    }
 
-	public void setTmPort(int tmPort) {
-		this.tmPort = tmPort;
-	}
+    public void setTcPort(int tcPort) {
+        this.tcPort = tcPort;
+    }
 
-	public ServerSocket getTmServerSocket() {
-		return tmServerSocket;
-	}
+    public int getTmPort() {
+        return tmPort;
+    }
 
-	public void setTmServerSocket(ServerSocket tmServerSocket) {
-		this.tmServerSocket = tmServerSocket;
-	}
+    public void setTmPort(int tmPort) {
+        this.tmPort = tmPort;
+    }
 
-	public ServerSocket getTcServerSocket() {
-		return tcServerSocket;
-	}
+    public ServerSocket getTmServerSocket() {
+        return tmServerSocket;
+    }
 
-	public void setTcServerSocket(ServerSocket tcServerSocket) {
-		this.tcServerSocket = tcServerSocket;
-	}
+    public void setTmServerSocket(ServerSocket tmServerSocket) {
+        this.tmServerSocket = tmServerSocket;
+    }
 
-	public int getId() {
-		return id;
-	}
+    public ServerSocket getTcServerSocket() {
+        return tcServerSocket;
+    }
 
-	public void setId(int id) {
-		this.id = id;
-	}
+    public void setTcServerSocket(ServerSocket tcServerSocket) {
+        this.tcServerSocket = tcServerSocket;
+    }
 
-	public boolean isConnected() {
-		return connected;
-	}
+    public int getId() {
+        return id;
+    }
 
-	public void setConnected(boolean connected) {
-		this.connected = connected;
-	}
+    public void setId(int id) {
+        this.id = id;
+    }
 
-	public  CCSDSPacket getTmPacket() {
-		return tmQueue.remove();
-	}
+    public boolean isConnected() {
+        return connected;
+    }
 
-	public void queueTmPacket(CCSDSPacket packet) {
-		this.tmQueue.add(packet);
-	}
-	
-	public boolean isTmQueueEmpty() {
-		return tmQueue.isEmpty();
-	}
-	
-	// tm dump related
-	public CCSDSPacket getTmDumpPacket() {
-		return tmDumpQueue.remove();
-	}
+    public void setConnected(boolean connected) {
+        this.connected = connected;
+    }
 
-	public void setTmDumpPacket(CCSDSPacket packet) {
-		this.tmDumpQueue.add(packet);
-	}
-	
-	public boolean isTmDumpQueueEmpty() {
-		return tmDumpQueue.isEmpty();
-	}
-	
-	public boolean isSignalStatus() {
-		return signalStatus;
-	}
+    public  CCSDSPacket getTmPacket() {
+        return tmQueue.remove();
 
-	public void setSignalStatus(boolean signalStatus) {
-		this.signalStatus = signalStatus;
-	}
+    }
 
-	public ServerSocket getLosServerSocket() {
-		return losServerSocket;
-	}
+    public void queueTmPacket(CCSDSPacket packet) {
+        try {
+            this.tmQueue.put(packet);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
 
-	public void setLosServerSocket(ServerSocket losServerSocket) {
-		this.losServerSocket = losServerSocket;
-	}
-	
-	public Socket getLosSocket() {
-		return losSocket;
-	}
+    public boolean isTmQueueEmpty() {
+        return tmQueue.isEmpty();
+    }
 
-	public void setLosSocket(Socket losSocket) {
-		this.losSocket = losSocket;
-	}
+    // tm dump related
+    public CCSDSPacket getTmDumpPacket() {
+        return tmDumpQueue.remove();
+    }
 
-	public int getLosPort() {
-		return losPort;
-	}
+    public void setTmDumpPacket(CCSDSPacket packet) {
+        this.tmDumpQueue.add(packet);
+    }
 
-	public void setLosPort(int losPort) {
-		this.losPort = losPort;
-	}
+    public boolean isTmDumpQueueEmpty() {
+        return tmDumpQueue.isEmpty();
+    }
+
+    public boolean isSignalStatus() {
+        return signalStatus;
+    }
+
+    public void setSignalStatus(boolean signalStatus) {
+        this.signalStatus = signalStatus;
+    }
+
+    public ServerSocket getLosServerSocket() {
+        return losServerSocket;
+    }
+
+    public void setLosServerSocket(ServerSocket losServerSocket) {
+        this.losServerSocket = losServerSocket;
+    }
+
+    public Socket getLosSocket() {
+        return losSocket;
+    }
+
+    public void setLosSocket(Socket losSocket) {
+        this.losSocket = losSocket;
+    }
+
+    public int getLosPort() {
+        return losPort;
+    }
+
+    public void setLosPort(int losPort) {
+        this.losPort = losPort;
+    }
 }

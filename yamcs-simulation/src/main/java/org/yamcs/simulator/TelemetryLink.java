@@ -12,7 +12,7 @@ import org.slf4j.LoggerFactory;
  * Created by msc on 29/05/15.
  */
 public class TelemetryLink {
-    
+
     private static final Logger log = LoggerFactory.getLogger(TelemetryLink.class);
 
     private Simulator simulator;
@@ -32,7 +32,6 @@ public class TelemetryLink {
     public void packetSend(ServerConnection conn) {
         while (true) {
             if (!simulator.isLOS()) {
-                //System.out.print("packet Send");
                 tmPacketSend(conn);
                 tmPacketDump(conn);
             } else {
@@ -87,7 +86,7 @@ public class TelemetryLink {
             log.info("Waiting for connection from server " + conn.getId());
             conn.setTmServerSocket(new ServerSocket(conn.getTmPort()));
             conn.setTmSocket(conn.getTmServerSocket().accept());
-            
+
             Socket tmSocket = conn.getTmSocket();
             logMessage(conn.getId(), "Connected TM: "
                     + tmSocket.getInetAddress() + ":"
@@ -111,7 +110,7 @@ public class TelemetryLink {
         try {
             conn.setLosServerSocket(new ServerSocket(conn.getLosPort()));
             conn.setLosSocket(conn.getLosServerSocket().accept());
-            
+
             Socket losSocket = conn.getLosSocket();
             logMessage(conn.getId(), "Connected TM DUMP: "
                     + losSocket.getInetAddress() + ":"
@@ -126,7 +125,7 @@ public class TelemetryLink {
                 simulator.getSimWindow().setServerStatus(conn.getId(), ServerConnection.ConnectionStatus.CONNECTED);
         }
     }
-    
+
     private void tmPacketSend(ServerConnection conn) {
         if (conn.isConnected() && !conn.isTmQueueEmpty()) {
             try {
@@ -134,6 +133,19 @@ public class TelemetryLink {
             } catch (IOException e1) {
                 log.error("Error while sending TM packet", e1);
                 yamcsServerConnect(conn);
+            }
+        }
+    }
+
+    public void ackPacketSend(CCSDSPacket packet) {
+        for(ServerConnection conn : serverConnections) {
+            if(conn.isConnected()) {
+                try {
+                    packet.writeTo(conn.getTmSocket().getOutputStream());
+                } catch (IOException e1) {
+                    log.error("Error while sending TM packet", e1);
+                    yamcsServerConnect(conn);
+                }
             }
         }
     }
@@ -160,7 +172,7 @@ public class TelemetryLink {
         }
     }
 
-    
+
     private void logMessage(int serverId, String message) {
         log.info(message);
         if(simulator.getSimWindow() != null)
