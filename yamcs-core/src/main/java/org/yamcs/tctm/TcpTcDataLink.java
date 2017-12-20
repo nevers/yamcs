@@ -10,6 +10,7 @@ import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -24,7 +25,6 @@ import org.yamcs.commanding.PreparedCommand;
 import org.yamcs.parameter.ParameterValue;
 import org.yamcs.parameter.SystemParametersCollector;
 import org.yamcs.parameter.SystemParametersProducer;
-import org.yamcs.protobuf.Commanding.CommandId;
 import org.yamcs.time.TimeService;
 import org.yamcs.utils.LoggingUtils;
 import org.yamcs.utils.TimeEncoding;
@@ -63,29 +63,37 @@ public class TcpTcDataLink extends AbstractService implements Runnable, TcDataLi
     static final PreparedCommand SIGNAL_QUIT = new PreparedCommand(new byte[0]);
     TcDequeueAndSend tcSender;
     
-    public TcpTcDataLink(String yamcsInstance, String name, String spec) throws ConfigurationException {
+    public TcpTcDataLink(String yamcsInstance, String name, Map<String, Object> config) throws ConfigurationException {
         log = LoggingUtils.getLogger(this.getClass(), yamcsInstance);
-        YConfiguration c = YConfiguration.getConfiguration("tcp");
         this.yamcsInstance = yamcsInstance;
-        host = c.getString(spec, "tcHost");
-        port = c.getInt(spec, "tcPort");
         this.name = name;
-        if (c.containsKey(spec, "minimumTcPacketLength")) {
-            minimumTcPacketLength = c.getInt(spec, "minimumTcPacketLength");
-        } else {
-            log.debug("minimumTcPacketLength not defined, using the default value {}", minimumTcPacketLength);
-        }
-        if (c.containsKey(spec, "tcQueueSize")) {
-            commandQueue = new LinkedBlockingQueue<>(c.getInt(spec, "tcQueueSize"));
-        } else {
-            commandQueue = new LinkedBlockingQueue<>();
-        }
-        if (c.containsKey(spec, "tcMaxRate")) {
-            rateLimiter = RateLimiter.create(c.getInt(spec, "tcMaxRate"));
-        }
+        
+        configure(config);
         timeService = YamcsServer.getTimeService(yamcsInstance);
     }
 
+    public TcpTcDataLink(String yamcsInstance, String name, String spec) throws ConfigurationException {
+        this(yamcsInstance, name, YConfiguration.getConfiguration("tcp").getMap(spec));
+    }
+
+    private void configure(Map<String, Object> config) {
+        host = YConfiguration.getString(config, "tcHost");
+        port = YConfiguration.getInt(config, "tcPort");
+        
+        minimumTcPacketLength = YConfiguration.getInt(config, "minimumTcPacketLength", -1);
+       
+        
+        if (config.containsKey("tcQueueSize")) {
+            commandQueue = new LinkedBlockingQueue<>(YConfiguration.getInt(config, "tcQueueSize"));
+        } else {
+            commandQueue = new LinkedBlockingQueue<>();
+        }
+        if (config.containsKey("tcMaxRate")) {
+            rateLimiter = RateLimiter.create( YConfiguration.getInt(config, "tcMaxRate"));
+        }
+        
+    }
+    
     protected TcpTcDataLink() {
         log = LoggerFactory.getLogger(this.getClass().getName());
     } // dummy constructor which is automatically invoked by subclass constructors
@@ -201,7 +209,7 @@ public class TcpTcDataLink extends AbstractService implements Runnable, TcDataLi
             return;
         }
         if (!commandQueue.offer(pc)) {
-            timer.schedule(new TcAckStatus(pc.getCommandId(), "Acknowledge_Sent", "NACK"), 10, TimeUnit.MILLISECONDS);
+            commandHistoryListener.publishWithTime(pc.getCommandId(), "Acknowledge_Sent", getCurrentTime(), "NOK");
         }
     }
 
@@ -270,35 +278,6 @@ public class TcpTcDataLink extends AbstractService implements Runnable, TcDataLi
         notifyStopped();
     }
 
-    class TcAck implements Runnable {
-        CommandId cmdId;
-        String name;
-        String value;
-
-        TcAck(CommandId cmdId, String name, String value) {
-            this.cmdId = cmdId;
-            this.name = name;
-            this.value = value;
-        }
-
-        @Override
-        public void run() {
-            commandHistoryListener.updateStringKey(cmdId, name, value);
-        }
-    }
-
-    public class TcAckStatus extends TcAck {
-        public TcAckStatus(CommandId cmdId, String name, String value) {
-            super(cmdId, name, value);
-        }
-
-        @Override
-        public void run() {
-            long instant = getCurrentTime();
-            commandHistoryListener.updateStringKey(cmdId, name + "_Status", value);
-            commandHistoryListener.updateTimeKey(cmdId, name + "_Time", instant);
-        }
-    }
 
     private class TcDequeueAndSend implements Runnable {
         PreparedCommand pc;
@@ -345,6 +324,8 @@ public class TcpTcDataLink extends AbstractService implements Runnable, TcDataLi
             int retries = 5;
             boolean sent = false;
             int seqCount = seqAndChecksumFiller.fill(bb, pc.getCommandId().getGenerationTime());
+            commandHistoryListener.publish(pc.getCommandId(), "ccsds-seqcount", seqCount);
+            
             bb.rewind();
             while (!sent && (retries > 0)) {
                 if (!isSocketOpen()) {
@@ -382,17 +363,11 @@ public class TcpTcDataLink extends AbstractService implements Runnable, TcDataLi
             }
 
             if (sent) {
-                timer.execute(new TcAckStatus(pc.getCommandId(), "Acknowledge_Sent", "ACK: OK"));
-                timer.execute(new TcAck(pc.getCommandId(), "Final_Sequence_Count", Integer.toString(seqCount)));
-                commandHistoryListener.publish(pc.getCommandId(), "ccsds-seqcount", seqCount);
+                commandHistoryListener.publishWithTime(pc.getCommandId(), "Acknowledge_Sent", getCurrentTime(), "OK");
             } else {
-                timer.schedule(new TcAckStatus(pc.getCommandId(), "Acknowledge_Sent", "NACK"), 100,
-                        TimeUnit.MILLISECONDS);
-
+                commandHistoryListener.publishWithTime(pc.getCommandId(), "Acknowledge_Sent", getCurrentTime(), "NOK");
             }
-
         }
-
     }
 
     @Override
@@ -410,7 +385,6 @@ public class TcpTcDataLink extends AbstractService implements Runnable, TcDataLi
         } else {
             log.info("System variables collector not defined for instance {} ", yamcsInstance);
         }
-
     }
 
     @Override
