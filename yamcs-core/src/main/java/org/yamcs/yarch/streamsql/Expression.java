@@ -87,11 +87,19 @@ public abstract class Expression {
     }
 
     protected void fillCode_Declarations(StringBuilder code) {
-        // do nothing by default
+        if (children != null) {
+            for (Expression c : children) {
+                c.fillCode_Declarations(code);
+            }
+        }
     }
 
     protected void fillCode_Constructor(StringBuilder code) throws StreamSqlException {
-        // do nothing by default
+        if (children != null) {
+            for (Expression c : children) {
+                c.fillCode_Constructor(code);
+            }
+        }
     }
 
     protected void fillCode_AllInputDefVars(StringBuilder code) {

@@ -32,18 +32,6 @@ public class AndExpression extends Expression {
         return this;
     }
     
-    @Override
-    protected void fillCode_Declarations(StringBuilder code) {
-        for (Expression expr : children) {
-            expr.fillCode_Declarations(code);
-        }
-    }
-    @Override
-    protected void fillCode_Constructor(StringBuilder code) throws StreamSqlException {
-        for (Expression expr : children) {
-            expr.fillCode_Constructor(code);
-        }
-    }
 
     @Override
     public void fillCode_getValueReturn(StringBuilder code) throws StreamSqlException {
