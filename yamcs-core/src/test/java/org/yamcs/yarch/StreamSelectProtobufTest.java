@@ -4,6 +4,7 @@ import java.util.List;
 
 import org.junit.Test;
 import org.yamcs.protobuf.Yamcs.Event;
+import org.yamcs.protobuf.Yamcs.Event.EventSeverity;
 import org.yamcs.utils.TimeEncoding;
 import org.yamcs.yarch.AbstractStream;
 import org.yamcs.yarch.DataType;
@@ -34,7 +35,8 @@ public class StreamSelectProtobufTest extends YarchTestCase {
                     Event event = Event.newBuilder().setSource("test"+i).setSeqNumber(i)
                             .setGenerationTime(TimeEncoding.getWallclockTime())
                             .setReceptionTime(TimeEncoding.getWallclockTime())
-                            .setMessage("msg"+i).build();
+                            .setMessage("msg"+i)
+                            .setSeverity(i==5?EventSeverity.INFO:EventSeverity.WARNING).build();
                     Integer y = i * 2;
                     Tuple t = new Tuple(tpdef, new Object[] { event, y });
                     emitTuple(t);
@@ -87,4 +89,17 @@ public class StreamSelectProtobufTest extends YarchTestCase {
         Tuple t0 = tlist.get(0);
         assertEquals(15, ((Event) t0.getColumn("event")).getSeqNumber());
     }
+    
+    @Test
+    public void test3() throws Exception {
+        createFeeder1();
+        res = execute("create stream stream_out1 as select event from stream_in where event.severity in ('INFO')");
+        
+        List<Tuple> tlist = fetchAll("stream_out1");
+        
+        assertEquals(1, tlist.size());
+        Tuple t0 = tlist.get(0);
+        assertEquals(5, ((Event) t0.getColumn("event")).getSeqNumber());
+    }
+    
 }
