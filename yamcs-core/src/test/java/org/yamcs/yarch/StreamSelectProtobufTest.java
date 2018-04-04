@@ -102,4 +102,17 @@ public class StreamSelectProtobufTest extends YarchTestCase {
         assertEquals(5, ((Event) t0.getColumn("event")).getSeqNumber());
     }
     
+    @Test
+    public void test4() throws Exception {
+        createFeeder1();
+        res = execute("create stream stream_out1 as select event from stream_in where event.severity in ('WARNING') and event.message like '%7%'");
+        
+        List<Tuple> tlist = fetchAll("stream_out1");
+        
+        assertEquals(2, tlist.size());
+        Tuple t0 = tlist.get(0);
+        assertEquals(7, ((Event) t0.getColumn("event")).getSeqNumber());
+        Tuple t1 = tlist.get(1);
+        assertEquals(17, ((Event) t1.getColumn("event")).getSeqNumber());
+    }
 }
