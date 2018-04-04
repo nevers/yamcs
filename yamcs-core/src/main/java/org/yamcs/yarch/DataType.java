@@ -15,7 +15,6 @@ import org.yamcs.parameter.ParameterValue;
  *
  */
 public class DataType {
-
     private static final long serialVersionUID = 201101181144L;
     
     public enum _type {BYTE, SHORT, INT, DOUBLE, TIMESTAMP, STRING, BINARY, BOOLEAN, ENUM, PROTOBUF, PARAMETER_VALUE, TUPLE, LIST}
@@ -124,8 +123,9 @@ public class DataType {
           return "Integer";
       case PARAMETER_VALUE:
           return "ParameterValue";
+      default:
+          throw new IllegalStateException("no java type available for "+this);
       }
-      return null;
     }
 
     public String primitiveJavaType() {
