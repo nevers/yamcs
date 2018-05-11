@@ -9,6 +9,7 @@ public enum SystemPrivilege {
     MayControlArchiving,
     MayControlLinks,
     MayControlServices,
+    MayCreateBucket,
     MayReadEvents,
     MayWriteEvents,
     MayWriteTables,

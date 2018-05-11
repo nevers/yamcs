@@ -18,6 +18,7 @@ import org.yamcs.archive.TagDb;
 import org.yamcs.utils.ByteArrayUtils;
 import org.yamcs.utils.TimeInterval;
 import org.yamcs.yarch.AbstractStream;
+import org.yamcs.yarch.BucketDatabase;
 import org.yamcs.yarch.HistogramIterator;
 import org.yamcs.yarch.Partition;
 import org.yamcs.yarch.StorageEngine;
@@ -39,6 +40,7 @@ public class RdbStorageEngine implements StorageEngine {
     Map<TableDefinition, RdbPartitionManager> partitionManagers = new HashMap<>();
     Map<String, Tablespace> tablespaces = new HashMap<>();
     Map<String, RdbTagDb> tagDbs = new HashMap<>();
+    Map<String, RdbBucketDatabase> bucketDbs = new HashMap<>();
     
     // number of bytes taken by the tbsIndex (prefix for all keys)
     public static final int TBS_INDEX_SIZE = 4;
@@ -253,6 +255,21 @@ public class RdbStorageEngine implements StorageEngine {
         } catch (RocksDBException | IOException e) {
             throw new YarchException(e);
         }
+    }
+    
+    public synchronized BucketDatabase getBucketDatabase(YarchDatabaseInstance ydb) throws YarchException {
+        String tablespaceName = ydb.getTablespaceName();
+        String yamcsInstance = ydb.getYamcsInstance();
+        RdbBucketDatabase bdb = bucketDbs.get(tablespaceName);
+        if(bdb == null) {
+            try {
+                bdb = new RdbBucketDatabase(yamcsInstance, tablespaces.get(tablespaceName));
+            } catch (RocksDBException | IOException e) {
+               throw new YarchException("Cannot create bucket database", e);
+            }
+            bucketDbs.put(tablespaceName, bdb);
+        }
+        return bdb;
     }
 
     static byte[] dbKey(int tbsIndex) {

@@ -197,7 +197,7 @@ public class Tablespace {
         if (!trb.hasType()) {
             throw new IllegalArgumentException("The type is mandatory in the TablespaceRecord");
         }
-        if (!yamcsInstance.equals(name)) {
+        if (!name.equals(yamcsInstance)) {
             trb.setInstanceName(yamcsInstance);
         }
         int tbsIndex = getNextTbsIndex();
