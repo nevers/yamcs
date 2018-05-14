@@ -60,6 +60,7 @@ import io.netty.handler.codec.http.LastHttpContent;
  * Contains utility methods for REST handlers. May eventually refactor this out.
  */
 public abstract class RestHandler extends RouteHandler {
+    public final static String GLOBAL_INSTANCE = "_global";
 
     private static final Logger log = LoggerFactory.getLogger(RestHandler.class);
 
