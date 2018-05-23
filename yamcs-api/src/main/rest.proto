@@ -277,3 +277,20 @@ message DisplayFile {
   optional string path = 2;
   optional string url = 3;
 }
+
+
+message ObjectInfo {
+  optional string name = 1;
+  optional string created  = 2; //time in UTC format
+  map<string, string> metadata = 3;
+}
+
+message ListBucketsResponse {
+  repeated string name = 1;
+}
+
+
+message ListObjectsResponse {
+   repeated ObjectInfo objects = 2;
+}
+

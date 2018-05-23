@@ -10,6 +10,8 @@ public enum SystemPrivilege {
     MayControlLinks,
     MayControlServices,
     MayCreateBucket,
+    MayWriteToBucket,
+    MayReadBucket,
     MayReadEvents,
     MayWriteEvents,
     MayWriteTables,
