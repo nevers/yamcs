@@ -14,15 +14,26 @@ public interface Bucket {
      * @return
      */
     String getName();
+    
+    default List<ObjectProperties> listObjects(String prefix) throws IOException {
+        return listObjects(prefix, x->true);
+    };
+    
+    default List<ObjectProperties> listObjects(Predicate<ObjectPropertiesOrBuilder> p) throws IOException {
+        return listObjects(null, p);
+    };
+    
     /**
-     * retrieve objects that match the condition
+     * retrieve objects whose name start with prefix and that match the condition
+     * Note that searching by prefix is cheap, the condition will be evaluated for all objects that match the prefix 
      * 
+     * @param prefix - 
      * @param p - predicate to be matched by the returned objects
      * @return list of objects
      * @throws IOException
      */
-    List<ObjectProperties> listObjects(Predicate<ObjectPropertiesOrBuilder> p) throws IOException;
-    void uploadObject(String objectName, String contentType, Map<String, String> metadata, byte[] objectData) throws IOException;
+    List<ObjectProperties> listObjects(String prefix, Predicate<ObjectPropertiesOrBuilder> p) throws IOException;
+    void putObject(String objectName, String contentType, Map<String, String> metadata, byte[] objectData) throws IOException;
     byte[] getObject(String objectName)  throws IOException;
     void deleteObject(String objectName)  throws IOException;
     

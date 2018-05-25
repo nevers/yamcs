@@ -55,7 +55,7 @@ public class BucketDbTest {
         props.put("prop2", "value2");
         byte[] objectData = new byte[1000];
         random.nextBytes(objectData);
-        bucket.uploadObject("object1", null, props, objectData);
+        bucket.putObject("object1", null, props, objectData);
         List<ObjectProperties> l = bucket.listObjects(x -> true);
         assertEquals(1, l.size());
         assertEquals("object1", l.get(0).getName());
@@ -65,18 +65,22 @@ public class BucketDbTest {
         
         //closing and reopening
         tablespace.close();
-        tablespace = new Tablespace("tablespace2", (byte)0);
+        tablespace = new Tablespace("tablespace1bis", (byte)0);
         tablespace.setCustomDataDir(dir);
         tablespace.loadDb(false);
         bucketDb = new RdbBucketDatabase("test", tablespace);
          
         assertEquals("[bucket1]", bucketDb.listBuckets().toString());
         bucket = bucketDb.getBucket("bucket1");
-        assertEquals(1, bucket.maxObjectId.get());
         
         l = bucket.listObjects(x -> true);
         assertEquals(1, l.size());
         assertEquals("object1", l.get(0).getName());
+        
+      
+        
+        l = bucket.listObjects("x", x -> true);
+        assertEquals(0, l.size());
         
         b = bucket.getObject("object1");
         assertArrayEquals(objectData, b);
@@ -90,9 +94,10 @@ public class BucketDbTest {
         tablespace.close();
     }    
 
-    void testDelete() throws Exception {
-        String dir = testDir+"/tablespace";
-        Tablespace tablespace = new Tablespace("tablespace1", (byte)0);
+    @Test
+    public void test2() throws Exception {
+        String dir = testDir+"/tablespace2";
+        Tablespace tablespace = new Tablespace("tablespace2", (byte)0);
         tablespace.setCustomDataDir(dir);
         tablespace.loadDb(false);
         
@@ -100,13 +105,70 @@ public class BucketDbTest {
         assertTrue(bucketDb.listBuckets().isEmpty());
         
         Bucket bucket = bucketDb.createBucket("bucket1");
-        bucket.uploadObject("object1", null, new HashMap<>(), new byte[100]);
-        bucket.uploadObject("object2", "plain/text", new HashMap<>(), new byte[100]);
+        bucket.putObject("object1", null, new HashMap<>(), new byte[100]);
+        bucket.putObject("object2", "plain/text", new HashMap<>(), new byte[100]);
         
-        assertEquals(2, tablespace.getRdb().getApproxNumRecords());
+        List<ObjectProperties> l  = bucket.listObjects("object");
+        assertEquals(2, l.size());
+        
+        assertEquals(4, tablespace.getRdb().getApproxNumRecords());
         bucketDb.deleteBucket("bucket1");
-        assertEquals(0, tablespace.getRdb().getApproxNumRecords());
+        
         tablespace.close();
+        
+        //closing and reopening
+        tablespace = new Tablespace("tablespace2bis", (byte)0);
+        tablespace.setCustomDataDir(dir);
+        tablespace.loadDb(false);
+        bucketDb = new RdbBucketDatabase("test", tablespace);
+        bucket = bucketDb.getBucket("bucket1");
+        assertNull(bucket);
     }
-
+    
+    @Test
+    public void test3() throws Exception {
+        RdbBucketDatabase bucketDb = createDb(3); 
+        Bucket b = bucketDb.createBucket("bucket1");
+        Exception e = null;
+        int n = RdbBucketDatabase.MAX_NUM_OBJECTS_PER_BUCKET;
+        try {
+            for(int i=0; i<n+1; i++) {
+                b.putObject("obj"+i, null, null, new byte[10]);
+            }
+        } catch (Exception e1) {
+            e = e1;
+        }
+        assertNotNull(e);
+        b.deleteObject("obj0");
+        b.putObject("newobj", null, null, new byte[10]);
+    }
+    
+    
+    @Test
+    public void test4() throws Exception {
+        RdbBucketDatabase bucketDb = createDb(4); 
+        Bucket b = bucketDb.createBucket("bucket1");
+        Exception e = null;
+        try {
+            for(int i=0; i<RdbBucketDatabase.MAX_BUCKET_SIZE/(1024*1024)+1; i++) {
+                b.putObject("obj"+i, null, null, new byte[1024*1024]);
+            }
+        } catch (Exception e1) {
+            e = e1;
+        }
+        
+        assertNotNull(e);
+        b.deleteObject("obj0");
+        b.putObject("newobj", null, null, new byte[1024*1024]);
+    }
+    
+    private RdbBucketDatabase createDb(int n) throws Exception {
+        String dir = testDir+"/tablespace"+n;
+        Tablespace tablespace = new Tablespace("tablespace"+n, (byte)0);
+        tablespace.setCustomDataDir(dir);
+        tablespace.loadDb(false);
+        return new RdbBucketDatabase("test", tablespace);
+    }
+    
+    
 }

@@ -285,7 +285,8 @@ message CreateBucketRequest {
 message ObjectInfo {
   optional string name = 1;
   optional string created  = 2; //time in UTC format
-  map<string, string> metadata = 3;
+  optional uint64 size  = 3; //size in bytes
+  map<string, string> metadata = 4;
 }
 
 message ListBucketsResponse {

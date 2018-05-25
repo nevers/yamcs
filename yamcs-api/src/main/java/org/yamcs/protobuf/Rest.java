@@ -44974,11 +44974,28 @@ public final class Rest {
         getCreatedBytes();
 
     /**
-     * <code>map&lt;string, string&gt; metadata = 3;</code>
+     * <pre>
+     *size in bytes
+     * </pre>
+     *
+     * <code>optional uint64 size = 3;</code>
+     */
+    boolean hasSize();
+    /**
+     * <pre>
+     *size in bytes
+     * </pre>
+     *
+     * <code>optional uint64 size = 3;</code>
+     */
+    long getSize();
+
+    /**
+     * <code>map&lt;string, string&gt; metadata = 4;</code>
      */
     int getMetadataCount();
     /**
-     * <code>map&lt;string, string&gt; metadata = 3;</code>
+     * <code>map&lt;string, string&gt; metadata = 4;</code>
      */
     boolean containsMetadata(
         java.lang.String key);
@@ -44989,19 +45006,19 @@ public final class Rest {
     java.util.Map<java.lang.String, java.lang.String>
     getMetadata();
     /**
-     * <code>map&lt;string, string&gt; metadata = 3;</code>
+     * <code>map&lt;string, string&gt; metadata = 4;</code>
      */
     java.util.Map<java.lang.String, java.lang.String>
     getMetadataMap();
     /**
-     * <code>map&lt;string, string&gt; metadata = 3;</code>
+     * <code>map&lt;string, string&gt; metadata = 4;</code>
      */
 
     java.lang.String getMetadataOrDefault(
         java.lang.String key,
         java.lang.String defaultValue);
     /**
-     * <code>map&lt;string, string&gt; metadata = 3;</code>
+     * <code>map&lt;string, string&gt; metadata = 4;</code>
      */
 
     java.lang.String getMetadataOrThrow(
@@ -45021,6 +45038,7 @@ public final class Rest {
     private ObjectInfo() {
       name_ = "";
       created_ = "";
+      size_ = 0L;
     }
 
     @java.lang.Override
@@ -45063,11 +45081,16 @@ public final class Rest {
               created_ = bs;
               break;
             }
-            case 26: {
-              if (!((mutable_bitField0_ & 0x00000004) == 0x00000004)) {
+            case 24: {
+              bitField0_ |= 0x00000004;
+              size_ = input.readUInt64();
+              break;
+            }
+            case 34: {
+              if (!((mutable_bitField0_ & 0x00000008) == 0x00000008)) {
                 metadata_ = com.google.protobuf.MapField.newMapField(
                     MetadataDefaultEntryHolder.defaultEntry);
-                mutable_bitField0_ |= 0x00000004;
+                mutable_bitField0_ |= 0x00000008;
               }
               com.google.protobuf.MapEntry<java.lang.String, java.lang.String>
               metadata = input.readMessage(
@@ -45096,7 +45119,7 @@ public final class Rest {
     protected com.google.protobuf.MapField internalGetMapField(
         int number) {
       switch (number) {
-        case 3:
+        case 4:
           return internalGetMetadata();
         default:
           throw new RuntimeException(
@@ -45207,7 +45230,30 @@ public final class Rest {
       }
     }
 
-    public static final int METADATA_FIELD_NUMBER = 3;
+    public static final int SIZE_FIELD_NUMBER = 3;
+    private long size_;
+    /**
+     * <pre>
+     *size in bytes
+     * </pre>
+     *
+     * <code>optional uint64 size = 3;</code>
+     */
+    public boolean hasSize() {
+      return ((bitField0_ & 0x00000004) == 0x00000004);
+    }
+    /**
+     * <pre>
+     *size in bytes
+     * </pre>
+     *
+     * <code>optional uint64 size = 3;</code>
+     */
+    public long getSize() {
+      return size_;
+    }
+
+    public static final int METADATA_FIELD_NUMBER = 4;
     private static final class MetadataDefaultEntryHolder {
       static final com.google.protobuf.MapEntry<
           java.lang.String, java.lang.String> defaultEntry =
@@ -45234,7 +45280,7 @@ public final class Rest {
       return internalGetMetadata().getMap().size();
     }
     /**
-     * <code>map&lt;string, string&gt; metadata = 3;</code>
+     * <code>map&lt;string, string&gt; metadata = 4;</code>
      */
 
     public boolean containsMetadata(
@@ -45250,14 +45296,14 @@ public final class Rest {
       return getMetadataMap();
     }
     /**
-     * <code>map&lt;string, string&gt; metadata = 3;</code>
+     * <code>map&lt;string, string&gt; metadata = 4;</code>
      */
 
     public java.util.Map<java.lang.String, java.lang.String> getMetadataMap() {
       return internalGetMetadata().getMap();
     }
     /**
-     * <code>map&lt;string, string&gt; metadata = 3;</code>
+     * <code>map&lt;string, string&gt; metadata = 4;</code>
      */
 
     public java.lang.String getMetadataOrDefault(
@@ -45269,7 +45315,7 @@ public final class Rest {
       return map.containsKey(key) ? map.get(key) : defaultValue;
     }
     /**
-     * <code>map&lt;string, string&gt; metadata = 3;</code>
+     * <code>map&lt;string, string&gt; metadata = 4;</code>
      */
 
     public java.lang.String getMetadataOrThrow(
@@ -45301,6 +45347,9 @@ public final class Rest {
       if (((bitField0_ & 0x00000002) == 0x00000002)) {
         com.google.protobuf.GeneratedMessageV3.writeString(output, 2, created_);
       }
+      if (((bitField0_ & 0x00000004) == 0x00000004)) {
+        output.writeUInt64(3, size_);
+      }
       for (java.util.Map.Entry<java.lang.String, java.lang.String> entry
            : internalGetMetadata().getMap().entrySet()) {
         com.google.protobuf.MapEntry<java.lang.String, java.lang.String>
@@ -45308,7 +45357,7 @@ public final class Rest {
             .setKey(entry.getKey())
             .setValue(entry.getValue())
             .build();
-        output.writeMessage(3, metadata);
+        output.writeMessage(4, metadata);
       }
       unknownFields.writeTo(output);
     }
@@ -45324,6 +45373,10 @@ public final class Rest {
       if (((bitField0_ & 0x00000002) == 0x00000002)) {
         size += com.google.protobuf.GeneratedMessageV3.computeStringSize(2, created_);
       }
+      if (((bitField0_ & 0x00000004) == 0x00000004)) {
+        size += com.google.protobuf.CodedOutputStream
+          .computeUInt64Size(3, size_);
+      }
       for (java.util.Map.Entry<java.lang.String, java.lang.String> entry
            : internalGetMetadata().getMap().entrySet()) {
         com.google.protobuf.MapEntry<java.lang.String, java.lang.String>
@@ -45332,7 +45385,7 @@ public final class Rest {
             .setValue(entry.getValue())
             .build();
         size += com.google.protobuf.CodedOutputStream
-            .computeMessageSize(3, metadata);
+            .computeMessageSize(4, metadata);
       }
       size += unknownFields.getSerializedSize();
       memoizedSize = size;
@@ -45361,6 +45414,11 @@ public final class Rest {
         result = result && getCreated()
             .equals(other.getCreated());
       }
+      result = result && (hasSize() == other.hasSize());
+      if (hasSize()) {
+        result = result && (getSize()
+            == other.getSize());
+      }
       result = result && internalGetMetadata().equals(
           other.internalGetMetadata());
       result = result && unknownFields.equals(other.unknownFields);
@@ -45381,6 +45439,11 @@ public final class Rest {
       if (hasCreated()) {
         hash = (37 * hash) + CREATED_FIELD_NUMBER;
         hash = (53 * hash) + getCreated().hashCode();
+      }
+      if (hasSize()) {
+        hash = (37 * hash) + SIZE_FIELD_NUMBER;
+        hash = (53 * hash) + com.google.protobuf.Internal.hashLong(
+            getSize());
       }
       if (!internalGetMetadata().getMap().isEmpty()) {
         hash = (37 * hash) + METADATA_FIELD_NUMBER;
@@ -45484,7 +45547,7 @@ public final class Rest {
       protected com.google.protobuf.MapField internalGetMapField(
           int number) {
         switch (number) {
-          case 3:
+          case 4:
             return internalGetMetadata();
           default:
             throw new RuntimeException(
@@ -45495,7 +45558,7 @@ public final class Rest {
       protected com.google.protobuf.MapField internalGetMutableMapField(
           int number) {
         switch (number) {
-          case 3:
+          case 4:
             return internalGetMutableMetadata();
           default:
             throw new RuntimeException(
@@ -45530,6 +45593,8 @@ public final class Rest {
         bitField0_ = (bitField0_ & ~0x00000001);
         created_ = "";
         bitField0_ = (bitField0_ & ~0x00000002);
+        size_ = 0L;
+        bitField0_ = (bitField0_ & ~0x00000004);
         internalGetMutableMetadata().clear();
         return this;
       }
@@ -45563,6 +45628,10 @@ public final class Rest {
           to_bitField0_ |= 0x00000002;
         }
         result.created_ = created_;
+        if (((from_bitField0_ & 0x00000004) == 0x00000004)) {
+          to_bitField0_ |= 0x00000004;
+        }
+        result.size_ = size_;
         result.metadata_ = internalGetMetadata();
         result.metadata_.makeImmutable();
         result.bitField0_ = to_bitField0_;
@@ -45616,6 +45685,9 @@ public final class Rest {
           bitField0_ |= 0x00000002;
           created_ = other.created_;
           onChanged();
+        }
+        if (other.hasSize()) {
+          setSize(other.getSize());
         }
         internalGetMutableMetadata().mergeFrom(
             other.internalGetMetadata());
@@ -45823,6 +45895,54 @@ public final class Rest {
         return this;
       }
 
+      private long size_ ;
+      /**
+       * <pre>
+       *size in bytes
+       * </pre>
+       *
+       * <code>optional uint64 size = 3;</code>
+       */
+      public boolean hasSize() {
+        return ((bitField0_ & 0x00000004) == 0x00000004);
+      }
+      /**
+       * <pre>
+       *size in bytes
+       * </pre>
+       *
+       * <code>optional uint64 size = 3;</code>
+       */
+      public long getSize() {
+        return size_;
+      }
+      /**
+       * <pre>
+       *size in bytes
+       * </pre>
+       *
+       * <code>optional uint64 size = 3;</code>
+       */
+      public Builder setSize(long value) {
+        bitField0_ |= 0x00000004;
+        size_ = value;
+        onChanged();
+        return this;
+      }
+      /**
+       * <pre>
+       *size in bytes
+       * </pre>
+       *
+       * <code>optional uint64 size = 3;</code>
+       */
+      public Builder clearSize() {
+        bitField0_ = (bitField0_ & ~0x00000004);
+        size_ = 0L;
+        onChanged();
+        return this;
+      }
+
       private com.google.protobuf.MapField<
           java.lang.String, java.lang.String> metadata_;
       private com.google.protobuf.MapField<java.lang.String, java.lang.String>
@@ -45850,7 +45970,7 @@ public final class Rest {
         return internalGetMetadata().getMap().size();
       }
       /**
-       * <code>map&lt;string, string&gt; metadata = 3;</code>
+       * <code>map&lt;string, string&gt; metadata = 4;</code>
        */
 
       public boolean containsMetadata(
@@ -45866,14 +45986,14 @@ public final class Rest {
         return getMetadataMap();
       }
       /**
-       * <code>map&lt;string, string&gt; metadata = 3;</code>
+       * <code>map&lt;string, string&gt; metadata = 4;</code>
        */
 
       public java.util.Map<java.lang.String, java.lang.String> getMetadataMap() {
         return internalGetMetadata().getMap();
       }
       /**
-       * <code>map&lt;string, string&gt; metadata = 3;</code>
+       * <code>map&lt;string, string&gt; metadata = 4;</code>
        */
 
       public java.lang.String getMetadataOrDefault(
@@ -45885,7 +46005,7 @@ public final class Rest {
         return map.containsKey(key) ? map.get(key) : defaultValue;
       }
       /**
-       * <code>map&lt;string, string&gt; metadata = 3;</code>
+       * <code>map&lt;string, string&gt; metadata = 4;</code>
        */
 
       public java.lang.String getMetadataOrThrow(
@@ -45904,7 +46024,7 @@ public final class Rest {
         return this;
       }
       /**
-       * <code>map&lt;string, string&gt; metadata = 3;</code>
+       * <code>map&lt;string, string&gt; metadata = 4;</code>
        */
 
       public Builder removeMetadata(
@@ -45922,7 +46042,7 @@ public final class Rest {
         return internalGetMutableMetadata().getMutableMap();
       }
       /**
-       * <code>map&lt;string, string&gt; metadata = 3;</code>
+       * <code>map&lt;string, string&gt; metadata = 4;</code>
        */
       public Builder putMetadata(
           java.lang.String key,
@@ -45933,7 +46053,7 @@ public final class Rest {
         return this;
       }
       /**
-       * <code>map&lt;string, string&gt; metadata = 3;</code>
+       * <code>map&lt;string, string&gt; metadata = 4;</code>
        */
 
       public Builder putAllMetadata(
@@ -47695,14 +47815,14 @@ public final class Rest {
       "isplayFolder\022%\n\004file\030\004 \003(\0132\027.parameters." +
       "DisplayFile\"6\n\013DisplayFile\022\014\n\004name\030\001 \001(\t" +
       "\022\014\n\004path\030\002 \001(\t\022\013\n\003url\030\003 \001(\t\"#\n\023CreateBuc" +
-      "ketRequest\022\014\n\004name\030\001 \001(\t\"\224\001\n\nObjectInfo\022",
-      "\014\n\004name\030\001 \001(\t\022\017\n\007created\030\002 \001(\t\0226\n\010metada" +
-      "ta\030\003 \003(\0132$.parameters.ObjectInfo.Metadat" +
-      "aEntry\032/\n\rMetadataEntry\022\013\n\003key\030\001 \001(\t\022\r\n\005" +
-      "value\030\002 \001(\t:\0028\001\"#\n\023ListBucketsResponse\022\014" +
-      "\n\004name\030\001 \003(\t\">\n\023ListObjectsResponse\022\'\n\007o" +
-      "bjects\030\002 \003(\0132\026.parameters.ObjectInfoB\024\n\022" +
-      "org.yamcs.protobuf"
+      "ketRequest\022\014\n\004name\030\001 \001(\t\"\242\001\n\nObjectInfo\022",
+      "\014\n\004name\030\001 \001(\t\022\017\n\007created\030\002 \001(\t\022\014\n\004size\030\003" +
+      " \001(\004\0226\n\010metadata\030\004 \003(\0132$.parameters.Obje" +
+      "ctInfo.MetadataEntry\032/\n\rMetadataEntry\022\013\n" +
+      "\003key\030\001 \001(\t\022\r\n\005value\030\002 \001(\t:\0028\001\"#\n\023ListBuc" +
+      "ketsResponse\022\014\n\004name\030\001 \003(\t\">\n\023ListObject" +
+      "sResponse\022\'\n\007objects\030\002 \003(\0132\026.parameters." +
+      "ObjectInfoB\024\n\022org.yamcs.protobuf"
     };
     com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
         new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
@@ -48040,7 +48160,7 @@ public final class Rest {
     internal_static_parameters_ObjectInfo_fieldAccessorTable = new
       com.google.protobuf.GeneratedMessageV3.FieldAccessorTable(
         internal_static_parameters_ObjectInfo_descriptor,
-        new java.lang.String[] { "Name", "Created", "Metadata", });
+        new java.lang.String[] { "Name", "Created", "Size", "Metadata", });
     internal_static_parameters_ObjectInfo_MetadataEntry_descriptor =
       internal_static_parameters_ObjectInfo_descriptor.getNestedTypes().get(0);
     internal_static_parameters_ObjectInfo_MetadataEntry_fieldAccessorTable = new
