@@ -278,6 +278,9 @@ message DisplayFile {
   optional string url = 3;
 }
 
+message CreateBucketRequest {
+  optional string name = 1;
+}
 
 message ObjectInfo {
   optional string name = 1;

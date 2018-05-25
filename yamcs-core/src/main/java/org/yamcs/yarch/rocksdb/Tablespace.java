@@ -160,6 +160,7 @@ public class Tablespace {
         try (AscendingRangeIterator arit = new AscendingRangeIterator(db.newIterator(cfMetadata), rangeStart, false,
                 rangeStart, false)) {
             while (arit.isValid()) {
+            
                 TablespaceRecord.Builder tr;
                 try {
                     tr = TablespaceRecord.newBuilder().mergeFrom(arit.value());
@@ -209,6 +210,22 @@ public class Tablespace {
         return tr;
     }
 
+    TablespaceRecord updateRecord(String yamcsInstance, WriteBatch writeBatch, TablespaceRecord.Builder trb) {
+        if (!trb.hasType()) {
+            throw new IllegalArgumentException("The type is mandatory in the TablespaceRecord");
+        }
+        if (!trb.hasTbsIndex()) {
+            throw new IllegalArgumentException("The tbsIndex is mandatory for update");
+        }
+        if (!name.equals(yamcsInstance)) {
+            trb.setInstanceName(yamcsInstance);
+        }
+
+        TablespaceRecord tr = trb.build();
+        log.debug("Adding new metadata record {}", tr);
+        writeBatch.put(cfMetadata, getMetadataKey(tr.getType(), tr.getTbsIndex()), tr.toByteArray());
+        return tr;
+    }
     public String getCustomDataDir() {
         return customDataDir;
     }

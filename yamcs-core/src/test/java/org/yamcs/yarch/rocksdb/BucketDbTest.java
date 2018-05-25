@@ -55,7 +55,7 @@ public class BucketDbTest {
         props.put("prop2", "value2");
         byte[] objectData = new byte[1000];
         random.nextBytes(objectData);
-        bucket.uploadObject("object1", props, objectData);
+        bucket.uploadObject("object1", null, props, objectData);
         List<ObjectProperties> l = bucket.listObjects(x -> true);
         assertEquals(1, l.size());
         assertEquals("object1", l.get(0).getName());
@@ -100,8 +100,8 @@ public class BucketDbTest {
         assertTrue(bucketDb.listBuckets().isEmpty());
         
         Bucket bucket = bucketDb.createBucket("bucket1");
-        bucket.uploadObject("object1", new HashMap<>(), new byte[100]);
-        bucket.uploadObject("object2", new HashMap<>(), new byte[100]);
+        bucket.uploadObject("object1", null, new HashMap<>(), new byte[100]);
+        bucket.uploadObject("object2", "plain/text", new HashMap<>(), new byte[100]);
         
         assertEquals(2, tablespace.getRdb().getApproxNumRecords());
         bucketDb.deleteBucket("bucket1");

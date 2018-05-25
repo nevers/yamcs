@@ -75,13 +75,26 @@ message TablespaceRecord {
   optional string partitioningSchema = 10;
   
   //bucketName
-  optional string bucketName = 11;
+  optional BucketProperties bucketProperties = 11;
+}
+//associated to each bucket
+message BucketProperties {
+   optional string name = 1;
+   optional int64 created = 2;
+   optional int32 maxNumObjects = 3; //maximum number of objects in the bucket
+   optional uint64 maxSize = 4; //maximum size in bytes
+   optional int32 numObjects = 5; //current number of objects in the bucket
+   optional uint64 size = 6; //current bucket size
+
 }
 
 //associated to each user object
 message ObjectProperties {
    optional string name = 1;
    optional uint32 objectId = 2;
-   optional int64 created = 3;
-   map<string, string> metadata = 4;
+   optional string contentType = 3;
+   optional int64 created = 4;
+   optional uint64 size = 5;
+
+   map<string, string> metadata = 6;
 }
