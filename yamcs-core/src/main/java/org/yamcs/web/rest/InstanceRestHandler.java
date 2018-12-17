@@ -1,7 +1,10 @@
 package org.yamcs.web.rest;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -9,6 +12,7 @@ import org.yamcs.ConnectedClient;
 import org.yamcs.YamcsServer;
 import org.yamcs.YamcsServerInstance;
 import org.yamcs.management.ManagementService;
+import org.yamcs.protobuf.Rest.CreateInstanceRequest;
 import org.yamcs.protobuf.Rest.ListClientsResponse;
 import org.yamcs.protobuf.Rest.ListInstancesResponse;
 import org.yamcs.protobuf.YamcsManagement.ClientInfo.ClientState;
@@ -19,11 +23,14 @@ import org.yamcs.web.BadRequestException;
 import org.yamcs.web.HttpException;
 import org.yamcs.web.InternalServerErrorException;
 
+import com.google.common.util.concurrent.UncheckedExecutionException;
+
 /**
  * Handles incoming requests related to yamcs instances.
  */
 public class InstanceRestHandler extends RestHandler {
     private static final Logger log = LoggerFactory.getLogger(RestHandler.class);
+    private static Pattern ALLOWED_INSTANCE_NAMES = Pattern.compile("\\w[\\w\\.-]*");
 
     @Route(path = "/api/instances", method = "GET")
     public void listInstances(RestRequest req) throws HttpException {
@@ -38,7 +45,7 @@ public class InstanceRestHandler extends RestHandler {
     @Route(path = "/api/instances/:instance", method = "GET")
     public void getInstance(RestRequest req) throws HttpException {
         String instanceName = verifyInstance(req, req.getRouteParam("instance"));
-        YamcsServerInstance instance = YamcsServer.getInstance(instanceName);
+        YamcsServerInstance instance = yamcsServer.getInstance(instanceName);
         YamcsInstance instanceInfo = instance.getInstanceInfo();
         YamcsInstance enriched = YamcsToGpbAssembler.enrichYamcsInstance(req, instanceInfo);
         completeOK(req, enriched);
@@ -69,22 +76,39 @@ public class InstanceRestHandler extends RestHandler {
             throw new BadRequestException("No state specified");
         }
 
-        ManagementService mgr = ManagementService.getInstance();
-        CompletableFuture<Void> cf;
+        CompletableFuture<YamcsServerInstance> cf;
         switch (state.toLowerCase()) {
         case "stop":
         case "stopped":
-            cf = mgr.stopInstance(instance);
+            if (yamcsServer.getInstance(instance) == null) {
+                throw new BadRequestException("No instance named '" + instance + "'");
+            }
+            cf = CompletableFuture.supplyAsync(() -> {
+                return yamcsServer.stopInstance(instance);
+            });
             break;
         case "restarted":
-            cf = mgr.restartInstance(instance);
+            cf = CompletableFuture.supplyAsync(() -> {
+                return yamcsServer.restartYamcsInstance(instance);
+            });
+            break;
+        case "running":
+            cf = CompletableFuture.supplyAsync(() -> {
+                log.info("Restarting the instance {}", instance);
+                try {
+                    return yamcsServer.startInstance(instance);
+                } catch (IOException e) {
+                    throw new UncheckedExecutionException(e);
+                }
+            });
             break;
         default:
             throw new BadRequestException("Unsupported service state '" + state + "'");
         }
         cf.whenComplete((v, error) -> {
             if (error == null) {
-                completeOK(req);
+                YamcsInstance enriched = YamcsToGpbAssembler.enrichYamcsInstance(req, v.getInstanceInfo());
+                completeOK(req, enriched);
             } else {
                 Throwable t = ExceptionUtil.unwind(error);
                 log.error("Error when changing instance state to {}", state, t);
@@ -93,4 +117,45 @@ public class InstanceRestHandler extends RestHandler {
         });
     }
 
+    @Route(path = "/api/instances", method = { "PATCH", "PUT", "POST" })
+    public void createInstance(RestRequest req) throws HttpException {
+        checkSystemPrivilege(req, SystemPrivilege.CreateInstances);
+        CreateInstanceRequest request = req.bodyAsMessage(CreateInstanceRequest.newBuilder()).build();
+
+        if (!request.hasName()) {
+            throw new BadRequestException("No instance name was specified");
+        }
+        String instanceName = request.getName();
+        if (!ALLOWED_INSTANCE_NAMES.matcher(instanceName).matches()) {
+            throw new BadRequestException("Invalid instance name");
+        }
+        if (!request.hasTemplate()) {
+            throw new BadRequestException("No template was specified");
+        }
+        if (yamcsServer.getInstance(instanceName) != null) {
+            throw new BadRequestException("An instance named '" + instanceName + "' already exists");
+        }
+
+        CompletableFuture<YamcsServerInstance> cf = CompletableFuture.supplyAsync(() -> {
+            try {
+                yamcsServer.createInstance(instanceName, request.getTemplate(), request.getTemplateArgsMap(),
+                        request.getTagsMap());
+                return yamcsServer.startInstance(instanceName);
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
+            }
+        });
+
+        cf.whenComplete((v, error) -> {
+            if (error == null) {
+                YamcsInstance instanceInfo = v.getInstanceInfo();
+                YamcsInstance enriched = YamcsToGpbAssembler.enrichYamcsInstance(req, instanceInfo);
+                completeOK(req, enriched);
+            } else {
+                Throwable t = ExceptionUtil.unwind(error);
+                log.error("Error when creating instance {}", instanceName, t);
+                completeWithError(req, new InternalServerErrorException(t));
+            }
+        });
+    }
 }
