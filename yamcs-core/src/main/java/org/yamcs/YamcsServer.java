@@ -273,7 +273,7 @@ public class YamcsServer {
                 Yaml y = new Yaml();
                 Object o = y.load(tagFile.getAbsolutePath());
                 if (o instanceof Map<?, ?>) {
-                    ysi.setTags((Map<String, Object>) o);
+                    ysi.setTags((Map<String, String>) o);
                 } else {
                     staticlog.warn("Unexpected data of type {} in {}, expected a map", o.getClass(),
                             tagFile.getAbsolutePath());
@@ -481,7 +481,7 @@ public class YamcsServer {
      * @return
      */
     public synchronized YamcsServerInstance createInstance(String name, String template,
-            Map<String, String> templateArgs, Map<String, ?> tags) {
+            Map<String, String> templateArgs, Map<String, String> tags) {
         if (instances.containsKey("name")) {
             throw new IllegalArgumentException(String.format("There already exists an instance named '%s'", name));
         }
