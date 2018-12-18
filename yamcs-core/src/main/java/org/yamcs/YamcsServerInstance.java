@@ -42,7 +42,7 @@ public class YamcsServerInstance extends YamcsInstanceService {
     private XtceDb xtceDb;
 
 
-    Map<String, Object> tags;
+    Map<String, ?> tags;
     YConfiguration conf;
 
     YamcsServerInstance(String name) {
@@ -251,7 +251,11 @@ public class YamcsServerInstance extends YamcsInstanceService {
         return aib.build();
     }
 
-    public void setTags(Map<String, Object> tags) {
+    public void setTags(Map<String, ?> tags) {
         this.tags = tags;
+    }
+
+    public Map<String, ?> getTags() {
+        return tags;
     }
 }

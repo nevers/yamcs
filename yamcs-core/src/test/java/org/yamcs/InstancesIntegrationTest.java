@@ -58,14 +58,24 @@ public class InstancesIntegrationTest extends AbstractIntegrationTest {
         assertFalse(new File("/tmp/yamcs-IntegrationTest-data/instance-def/yamcs.inst-test1.yaml").exists());
         assertTrue(new File("/tmp/yamcs-IntegrationTest-data/instance-def/yamcs.inst-test1.yaml.offline").exists());
       
-        /*
-        resp = restClient.doRequest("/instances?tag1=tagValue1", HttpMethod.GET, "").get();
+        
+        resp = restClient.doRequest("/instances?filter=tag:tag1%3DtagValue1", HttpMethod.GET, "").get();
         ListInstancesResponse lir = fromJson(resp, ListInstancesResponse.newBuilder()).build();
         assertEquals(1, lir.getInstanceCount());
         yi = lir.getInstance(0);
         assertEquals("inst-test1", yi.getName());
         assertEquals(InstanceState.OFFLINE, yi.getState());
-        */
+       
+        resp = restClient.doRequest("/instances?filter=tag:tag1%3DtagValue1&filter=state%3Drunning", HttpMethod.GET, "").get();
+        lir = fromJson(resp, ListInstancesResponse.newBuilder()).build();
+        assertEquals(0, lir.getInstanceCount());
+        
+        
+        resp = restClient.doRequest("/instances?filter=state!%3Doffline", HttpMethod.GET, "").get();
+        lir = fromJson(resp, ListInstancesResponse.newBuilder()).build();
+        assertEquals(1, lir.getInstanceCount());
+        yi = lir.getInstance(0);
+        assertEquals("IntegrationTest", yi.getName());
     }
 
 }

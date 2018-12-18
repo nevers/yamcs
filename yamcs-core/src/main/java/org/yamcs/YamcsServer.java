@@ -481,7 +481,7 @@ public class YamcsServer {
      * @return
      */
     public synchronized YamcsServerInstance createInstance(String name, String template,
-            Map<String, String> templateArgs, Map<String, String> tags) {
+            Map<String, String> templateArgs, Map<String, ?> tags) {
         if (instances.containsKey("name")) {
             throw new IllegalArgumentException(String.format("There already exists an instance named '%s'", name));
         }
@@ -509,7 +509,9 @@ public class YamcsServer {
             YConfiguration conf = new YConfiguration("yamcs." + name, fis, confFile);
             fis.close();
             
-            return createInstance(name, conf);
+            YamcsServerInstance ysi =  createInstance(name, conf);
+            ysi.setTags(tags);
+            return ysi;
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }

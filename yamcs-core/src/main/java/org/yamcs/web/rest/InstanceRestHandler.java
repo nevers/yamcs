@@ -1,9 +1,14 @@
 package org.yamcs.web.rest;
 
 import java.io.IOException;
+import java.io.StringReader;
 import java.io.UncheckedIOException;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
 import org.slf4j.Logger;
@@ -17,8 +22,13 @@ import org.yamcs.protobuf.Rest.ListClientsResponse;
 import org.yamcs.protobuf.Rest.ListInstancesResponse;
 import org.yamcs.protobuf.YamcsManagement.ClientInfo.ClientState;
 import org.yamcs.protobuf.YamcsManagement.YamcsInstance;
+import org.yamcs.protobuf.YamcsManagement.YamcsInstance.InstanceState;
 import org.yamcs.security.SystemPrivilege;
 import org.yamcs.utils.ExceptionUtil;
+import org.yamcs.utils.parser.FilterParser;
+import org.yamcs.utils.parser.FilterParser.Result;
+import org.yamcs.utils.parser.ParseException;
+import org.yamcs.utils.parser.TokenMgrError;
 import org.yamcs.web.BadRequestException;
 import org.yamcs.web.HttpException;
 import org.yamcs.web.InternalServerErrorException;
@@ -34,10 +44,13 @@ public class InstanceRestHandler extends RestHandler {
 
     @Route(path = "/api/instances", method = "GET")
     public void listInstances(RestRequest req) throws HttpException {
+        Predicate<YamcsServerInstance> filter = getFilter(req.getQueryParameterList("filter"));
         ListInstancesResponse.Builder instancesb = ListInstancesResponse.newBuilder();
         for (YamcsServerInstance instance : YamcsServer.getInstances()) {
-            YamcsInstance enriched = YamcsToGpbAssembler.enrichYamcsInstance(req, instance.getInstanceInfo());
-            instancesb.addInstance(enriched);
+            if (filter.test(instance)) {
+                YamcsInstance enriched = YamcsToGpbAssembler.enrichYamcsInstance(req, instance.getInstanceInfo());
+                instancesb.addInstance(enriched);
+            }
         }
         completeOK(req, instancesb.build());
     }
@@ -157,5 +170,68 @@ public class InstanceRestHandler extends RestHandler {
                 completeWithError(req, new InternalServerErrorException(t));
             }
         });
+    }
+
+    private Predicate<YamcsServerInstance> getFilter(List<String> flist) throws HttpException {
+        if (flist == null) {
+            return ysi -> true;
+        }
+
+        FilterParser fp = new FilterParser((StringReader) null);
+
+        Predicate<YamcsServerInstance> pred = ysi -> true;
+        for (String filter : flist) {
+            fp.ReInit(new StringReader(filter));
+            FilterParser.Result pr;
+            try {
+                pr = fp.parse();
+                pred = pred.and(getPredicate(pr));
+            } catch (ParseException|TokenMgrError e) {
+                throw new BadRequestException("Cannot parse the filter '"+filter+"': " + e.getMessage());
+            }
+
+        }
+        return pred;
+    }
+
+    private Predicate<YamcsServerInstance> getPredicate(Result pr) throws HttpException {
+
+        if("state".equals(pr.key)) {
+            try {
+                InstanceState state = InstanceState.valueOf(pr.value.toUpperCase());
+                switch(pr.op) {
+                case EQUAL:
+                    return ysi -> ysi.state()==state;
+                case NOT_EQUAL:
+                    return ysi -> ysi.state()!=state;
+                default:
+                    throw new IllegalStateException("Unknown operator "+pr.op);
+                }
+            } catch (IllegalArgumentException e) {
+                throw new BadRequestException("Unknown state '"+pr.value+"'. Valid values are: "+Arrays.asList(InstanceState.values()));
+            }
+        } else if (pr.key.startsWith("tag:")) {
+            String tagKey = pr.key.substring(4);
+            return ysi -> {
+                Map<String, ?> tags = ysi.getTags();
+                if(tags==null) {
+                    return false;
+                }
+                Object o = tags.get(tagKey);
+                if(o==null) {
+                    return false;
+                }
+                switch(pr.op) {
+                case EQUAL:
+                    return pr.value.equals(o);
+                case NOT_EQUAL:
+                    return !pr.value.equals(o);
+                default:
+                    throw new IllegalStateException("Unknown operator "+pr.op);
+                }
+            };
+        } else {
+            throw new BadRequestException("Unknown filter key '"+pr.key+"'");
+        }
     }
 }
