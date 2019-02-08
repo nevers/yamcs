@@ -1,11 +1,12 @@
-package org.yamcs.tctm.ccsds;
+package org.yamcs.tctm.ccsds.error;
 
 import static org.junit.Assert.assertEquals;
 
 
 import org.junit.Test;
 import org.yamcs.rs.ReedSolomonException;
-import org.yamcs.tctm.ccsds.AosFrameHeaderErrorCorr.DecoderResult;
+import org.yamcs.tctm.ccsds.error.AosFrameHeaderErrorCorr;
+import org.yamcs.tctm.ccsds.error.AosFrameHeaderErrorCorr.DecoderResult;
 
 public class AosFrameHeaderErrorCorrTest {
   

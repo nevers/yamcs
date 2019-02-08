@@ -141,6 +141,13 @@ public class TcpTmDataLink extends AbstractTmDataLink {
                     Thread.currentThread().interrupt();
                     return null;
                 }
+            } catch (PacketTooLongException e) {
+                log.warn(e.toString());
+                try {
+                    tmSocket.close();
+                } catch (Exception e2) {
+                }
+                tmSocket = null;
             }
         }
         return pwt;

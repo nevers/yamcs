@@ -1,4 +1,4 @@
-package org.yamcs.tctm.ccsds;
+package org.yamcs.tctm.ccsds.error;
 
 import org.yamcs.rs.ReedSolomon;
 import org.yamcs.rs.ReedSolomonException;
@@ -26,7 +26,7 @@ public class AosFrameHeaderErrorCorr {
      *            - 8 bit signaling byte in the lowest 8 bits of the variable
      * @return
      */
-    static int encode(int vcid, int signalingField) {
+    public static int encode(int vcid, int signalingField) {
         byte[] data = new byte[] {
                 (byte) ((vcid >> 12) & 0xF),
                 (byte) ((vcid >> 8) & 0xF),
@@ -54,7 +54,7 @@ public class AosFrameHeaderErrorCorr {
      * @throws ReedSolomonException
      *             thrown if data cannot be decoded/corrected
      */
-    static DecoderResult decode(int vcid, int signalingField, int errControl) throws ReedSolomonException {
+    public static DecoderResult decode(int vcid, int signalingField, int errControl) throws ReedSolomonException {
         byte[] data = new byte[] {
                 (byte) ((vcid >> 12) & 0xF),
                 (byte) ((vcid >> 8) & 0xF),

@@ -136,12 +136,18 @@ public class SimulatorCommander extends ProcessRunner {
         telnetServer.setPort(runtimeOptions.telnetPort);
         services.add(telnetServer);
 
+        if (runtimeOptions.aosFrameSize > 0) {
+            UdpAosLink aosLink = new UdpAosLink("AOS", runtimeOptions.aosHost, runtimeOptions.aosPort,
+                    runtimeOptions.aosFrameSize, runtimeOptions.aosFrameFreq);
+            services.add(aosLink);
+            simulator.setFrameLink(aosLink);
+        }
+
         if (runtimeOptions.perfNp > 0) {
             PerfPacketGenerator ppg = new PerfPacketGenerator(simulator, runtimeOptions.perfNp, runtimeOptions.perfPs,
                     runtimeOptions.perfMs);
             services.add(ppg);
         }
-
         return services;
     }
 }

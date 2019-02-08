@@ -3,6 +3,7 @@ package org.yamcs.tctm.ccsds;
 import static org.junit.Assert.assertEquals;
 
 import org.junit.Test;
+import org.yamcs.tctm.ccsds.error.BchEncoder;
 
 public class BchEncoderTest {
 

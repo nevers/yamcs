@@ -1,14 +1,13 @@
 package org.yamcs.tctm;
 
-import com.google.common.util.concurrent.Service;
 
 /**
- * A sourcce of data into yamcs; Currently TM, TC and Parameter
+ * A source of data into yamcs; Currently TM, TC and Parameter
  * 
  * @author nm
  *
  */
-public interface Link extends Service {
+public interface Link {
     public enum Status {
         /**
          * the link is up ready to receive data.

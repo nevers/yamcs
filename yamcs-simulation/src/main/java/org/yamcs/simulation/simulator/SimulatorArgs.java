@@ -19,8 +19,20 @@ public class SimulatorArgs {
     @Parameter(names = "--los-port")
     public int losPort = 10115;
 
+    @Parameter(names = "--aos-host", description = "the UDP host where to send AOS frames")
+    public String aosHost = "localhost";
     
-    @Parameter(names = "--perf-np", description = "performance test: number of packets")
+    @Parameter(names = "--aos-port", description = "the UDP port where to send AOS frames")
+    public int aosPort = 10017;
+
+    @Parameter(names = "--aos-frameSize", description = "the AOS frame size (set to 0 to disable the AOS functionality)")
+    public int aosFrameSize = 512;
+    
+    @Parameter(names = "--aos-frameFreq", description = "the number of AOS frames to send per second")
+    public int aosFrameFreq = 10;
+    
+    
+    @Parameter(names = "--perf-np", description = "performance test: number of packets. Set to 0 to disable sending the performance packets")
     public int perfNp = 0;
     
     @Parameter(names = "--perf-ps", description = "performance test: packet size")

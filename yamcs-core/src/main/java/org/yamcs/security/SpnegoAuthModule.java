@@ -91,7 +91,7 @@ public class SpnegoAuthModule implements AuthModule, AuthModuleHttpHandler {
             System.setProperty("java.security.auth.login.config", YConfiguration.getString(config, "jaas.conf"));
         }
         stripRealm = YConfiguration.getBoolean(config, "stripRealm", false);
-        krbRealm = YConfiguration.getString(config, "krbRealm", null);
+        krbRealm = YConfiguration.getEnum(config, "krbRealm", null);
 
         try {
             yamcsLogin = new LoginContext("Yamcs", new TextCallbackHandler());

@@ -5,6 +5,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -14,6 +15,7 @@ import java.util.logging.LogManager;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.yamcs.tctm.ccsds.TransferFrameFactory.CcsdsFrameType;
 import org.yamcs.utils.TimeEncoding;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.error.YAMLException;
@@ -612,5 +614,26 @@ public class YConfiguration {
         public ConfigurationNotFoundException(String message, Throwable t) {
             super(message, t);
         }
+    }
+
+    /**
+     * Returns a value of an enumeration that matches ignoring case the string obtained from the config with the given key.
+     * Throws an Configurationexception if the key does not exist in config or if it does not map to a valid enumeration value
+     *  
+     * @param config
+     * @param key
+     * @param enumClass
+     * @return
+     */
+    public static <T extends Enum<T>> T getEnum(Map<String, Object> config, String key, Class<T> enumClass) {
+        String sk = getString(config, key);
+        
+        T[] values = enumClass.getEnumConstants();
+        for(T v: values) {
+            if(v.toString().equalsIgnoreCase(sk)) {
+                return v;
+            }
+        }
+        throw new ConfigurationException("Invalid value '"+sk+"'. Valid values are: "+Arrays.toString(values));
     }
 }

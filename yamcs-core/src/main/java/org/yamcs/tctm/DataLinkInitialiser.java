@@ -359,7 +359,11 @@ public class DataLinkInitialiser extends AbstractService implements YamcsService
 
     @Override
     protected void doStart() {
-        linksByName.values().forEach(Service::startAsync);
+        linksByName.forEach((name, link) -> {
+            if(link instanceof Service) {
+                ((Service)link).startAsync();
+            }
+        });
         notifyStarted();
     }
 
@@ -368,7 +372,9 @@ public class DataLinkInitialiser extends AbstractService implements YamcsService
         ManagementService mgrsrv = ManagementService.getInstance();
         linksByName.forEach((name, link) -> {
             mgrsrv.unregisterLink(yamcsInstance, name);
-            link.stopAsync();
+            if(link instanceof Service) {
+                ((Service)link).stopAsync();
+            }
         });
         notifyStopped();
     }
