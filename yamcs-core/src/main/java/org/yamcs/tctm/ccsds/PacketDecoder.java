@@ -43,7 +43,7 @@ public class PacketDecoder {
     private final int maxPacketLength;
 
     // length of the encapsulated packet header based on the last 2 bits of the first byte
-    static final byte[] ecapsHeaderLength = { 1, 2, 4, 8 };
+    static final byte[] ENCAPSULATION_HEADER_LENGTH = { 1, 2, 4, 8 };
 
     static final int PACKET_VERSION_CCSDS = 0;
     static final int PACKET_VERSION_ENCAPSULATION = 7;
@@ -71,11 +71,18 @@ public class PacketDecoder {
         while (length > 0) {
             if (headerOffset == 0) { // read the first byte of the header to know what kind of packet it is as well as
                                      // the legnth of the header
-                header[0] = data[offset];
-                headerOffset++;
+                byte d0 = data[offset];
                 offset++;
                 length--;
-                headerLength = getHeaderLength(header[0]);
+                headerLength = getHeaderLength(d0);
+                if (headerLength == 1) {
+                    // special case, encapsulation packet of size 1, send the packet and reset the header
+                    consumer.accept(new byte[] { d0 });
+                    headerOffset = 0;
+                } else {
+                    header[0] = d0;
+                    headerOffset++;
+                }
             } else if (headerOffset < headerLength) { // reading the header
                 int n = Math.min(length, headerLength - headerOffset);
                 System.arraycopy(data, offset, header, headerOffset, n);
@@ -98,16 +105,15 @@ public class PacketDecoder {
                 }
             }
         }
-
     }
 
     // get headerLength based on the first byte of the packet
     private static int getHeaderLength(byte b0) throws UnsupportedPacketVersionException {
-        int pv = b0 >>> 5;
+        int pv = (b0 & 0xFF) >>> 5;
         if (pv == PACKET_VERSION_CCSDS) {
             return 6;
         } else if (pv == PACKET_VERSION_ENCAPSULATION) {
-            return ecapsHeaderLength[b0 & 3];
+            return ENCAPSULATION_HEADER_LENGTH[b0 & 3];
         } else {
             throw new UnsupportedPacketVersionException(pv);
         }
@@ -117,9 +123,17 @@ public class PacketDecoder {
         int packetLength = getPacketLength(header);
         if (packetLength > maxPacketLength) {
             throw new PacketTooLongException(maxPacketLength, packetLength);
+        } else if (packetLength < headerLength) {
+            throw new TcTmException("Invalid packet length " + packetLength + " (it is smaller than the header length)");
         }
         packet = new byte[packetLength];
         System.arraycopy(header, 0, packet, 0, headerLength);
+        if (packetLength == headerLength) {
+            consumer.accept(packet);
+            headerOffset = 0;
+        } else {
+            packetOffset = headerLength;
+        }
     }
 
     // decodes the packet length from the header
@@ -157,8 +171,6 @@ public class PacketDecoder {
      * @return true of the decoder is in the middle of a packet decoding
      */
     public boolean hasIncompletePacket() {
-        System.out.println("headerOffset: "+headerOffset+" headerLength: "+headerLength+" packetOffset: "+packetOffset);
-        
         return (headerOffset > 0) && ((headerOffset < headerLength) || (packetOffset < packet.length));
     }
 
