@@ -2,7 +2,7 @@ package org.yamcs.tctm.ccsds;
 
 import org.yamcs.tctm.TcTmException;
 
-public interface TransferFrameFactory {
+public interface TransferFrameDecoder {
     enum CcsdsFrameType {
         /**
          * CCSDS 732.0-B-3 
@@ -25,6 +25,6 @@ public interface TransferFrameFactory {
      * @return
      * @throws TcTmException
      */
-    TransferFrame parse(byte[] data, int offset, int length) throws TcTmException;
+    TransferFrame decode(byte[] data, int offset, int length) throws TcTmException;
         
 }

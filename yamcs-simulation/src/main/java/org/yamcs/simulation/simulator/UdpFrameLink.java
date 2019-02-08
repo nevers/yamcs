@@ -3,24 +3,25 @@ package org.yamcs.simulation.simulator;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
-import java.net.SocketException;
+import java.net.InetAddress;
 import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.yamcs.tctm.ccsds.error.AosFrameHeaderErrorCorr;
+import org.yamcs.tctm.ccsds.error.CrcCciitCalculator;
 import org.yamcs.utils.ByteArrayUtils;
 
 import com.google.common.util.concurrent.AbstractScheduledService;
 
 /**
- * Link implementing the TM frames using 
- *  AOS CCSDS 732.0-B-3 
- *  TM CCSDS 132.0-B-2 (TODO)
- *  USLP CCSDS 732.1-B-1 (TODO)
- *  
- *  
+ * Link implementing the TM frames using
+ * AOS CCSDS 732.0-B-3
+ * TM CCSDS 132.0-B-2 (TODO)
+ * USLP CCSDS 732.1-B-1 (TODO)
+ * 
+ * 
  * Sends frames of predefined size at a configured frequency. If there is no data to send, it sends idle frames.
  * 
  * 
@@ -37,12 +38,15 @@ public class UdpFrameLink extends AbstractScheduledService {
     static final int NUM_VC = 3;
     static final int MASTER_CHANNEL_ID = 0x1AB;
     final int framesPerSec;
-    
-    VcSender[] senders = new VcSender[NUM_VC]; 
-    
+    final static CrcCciitCalculator crc = new CrcCciitCalculator();
+    VcSender[] senders = new VcSender[NUM_VC];
+
     private static final Logger log = LoggerFactory.getLogger(UdpFrameLink.class);
 
     int lastVcSent; // switches between 0 and 1 so we don't send always from the same vc
+    final byte[] idleFrameData;
+
+    InetAddress addr;
 
     public UdpFrameLink(String name, String host, int port, int frameSize, int framesPerSec) {
         this.name = name;
@@ -54,17 +58,35 @@ public class UdpFrameLink extends AbstractScheduledService {
         for (int i = 0; i < NUM_VC; i++) {
             senders[i] = new VcSender(i, frameSize);
         }
+        idleFrameData = new byte[frameSize];
+        writeVcId(idleFrameData, 63);
+        fillAOSCrcs(idleFrameData);
     }
 
     @Override
     protected void startUp() throws Exception {
+        addr = InetAddress.getByName(host);
         socket = new DatagramSocket();
     }
-    
-    
+
+    static void writeVcId(byte[] frameData, int vcId) {
+        ByteArrayUtils.encodeShort((MASTER_CHANNEL_ID << 6) + vcId, frameData, 0);
+    }
+
     @Override
     protected Scheduler scheduler() {
         return Scheduler.newFixedRateSchedule(0, (long) (1e6 / framesPerSec), TimeUnit.MICROSECONDS);
+    }
+
+    static void fillAOSCrcs(byte[] data) {
+        // first Reed-Solomon the header
+        int gvcid = ByteArrayUtils.decodeShort(data, 0);
+        int x = AosFrameHeaderErrorCorr.encode(gvcid, data[5]);
+        ByteArrayUtils.encodeShort(x, data, 6);
+
+        // then overall CRC
+        x = crc.compute(data, 0, data.length - 2);
+        ByteArrayUtils.encodeShort(x, data, data.length - 2);
     }
 
     @Override
@@ -76,7 +98,7 @@ public class UdpFrameLink extends AbstractScheduledService {
             return;
         }
         vc = (vc + 1) & 1;
-        
+
         if (senders[vc].sendFrame()) {
             lastVcSent = vc;
             return;
@@ -84,13 +106,13 @@ public class UdpFrameLink extends AbstractScheduledService {
         if (senders[2].sendFrame()) {
             return;
         }
-        
+
         sendIdle();
     }
 
     // send an idle frame
-    private void sendIdle() {
-        System.out.println("TODO send idle frame");
+    private void sendIdle() throws IOException {
+        socket.send(new DatagramPacket(idleFrameData, idleFrameData.length, addr, port));
     }
 
     /**
@@ -107,15 +129,15 @@ public class UdpFrameLink extends AbstractScheduledService {
         }
     }
 
-    
     class VcSender {
         final byte[] data;
         static final int HDR_SIZE = 8;
         int offset = HDR_SIZE;
         int vcSeqCount = 0;
+        int dataEnd;
 
         ArrayBlockingQueue<byte[]> queue = new ArrayBlockingQueue<>(10);
-        
+
         byte[] pendingPacket;
         int pendingPacketOffset;
 
@@ -124,8 +146,8 @@ public class UdpFrameLink extends AbstractScheduledService {
                 throw new IllegalArgumentException("Invalid virtual channel id " + vcId);
             }
             this.data = new byte[frameSize];
-            ByteArrayUtils.encodeShort((MASTER_CHANNEL_ID << 6) + vcId, data, 0);
-
+            dataEnd = frameSize - 2;// last two bytes are the CRC
+            writeVcId(data, vcId);
         }
 
         /**
@@ -159,7 +181,7 @@ public class UdpFrameLink extends AbstractScheduledService {
                 }
             }
             // if the frame is at least half full, fill it up with an idle packet and send it
-            if (offset > data.length / 2) {
+            if (offset > dataEnd / 2) {
                 fillIdlePacket();
                 sendToSocket();
                 return true;
@@ -172,7 +194,7 @@ public class UdpFrameLink extends AbstractScheduledService {
             if (n == 0) {
                 return;
             } else if (n == 1) {
-                
+
             }
         }
 
@@ -181,7 +203,7 @@ public class UdpFrameLink extends AbstractScheduledService {
         }
 
         void copyPendingToBuffer() {
-            int length = Math.min(pendingPacket.length - pendingPacketOffset, data.length - offset);
+            int length = Math.min(pendingPacket.length - pendingPacketOffset, dataEnd - offset);
             System.arraycopy(pendingPacket, pendingPacketOffset, data, offset, length);
             offset += length;
             pendingPacketOffset += length;
@@ -196,7 +218,9 @@ public class UdpFrameLink extends AbstractScheduledService {
             ByteArrayUtils.encodeShort(vcSeqCount & 0xFFFF, data, 3);
             data[5] = (byte) ((1 << 6) + (vcSeqCount >> 24) & 0xF);
 
-            socket.send(new DatagramPacket(data, data.length));
+            fillAOSCrcs(data);
+
+            socket.send(new DatagramPacket(data, data.length, addr, port));
             offset = HDR_SIZE;
             vcSeqCount++;
         }

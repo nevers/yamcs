@@ -14,7 +14,7 @@ import org.yamcs.utils.ByteArrayUtils;
  * The first 3 bits of these packets are 000.
  * <p>
  * The header is 6 bytes and the last two bytes of the header represent the
- * size of the packet (including the header) +7.
+ * size of the packet (including the header) - 7.
  * <p>
  * The minimum packet length is 7 bytes.
  * 
@@ -27,11 +27,11 @@ import org.yamcs.utils.ByteArrayUtils;
  * The minimum packet length is 1 byte.
  * <p>
  * Depending on the last 2 bits of the first byte, the size of the header can be 1,2,4 or 8 bytes with the length of the
- * packet read from the last 0,1,2 or 4 bytes respectively
+ * packet read from the last 0,1,2 or 4 header bytes respectively
  *
  * <p>
  * <p>
- * The two types can be multiplexed on the same stream.
+ * The two types can be both present on the same stream.
  * 
  * <p>
  * The objects of this class can processes one "stream" at a time and they are not thread safe!
@@ -57,8 +57,8 @@ public class PacketDecoder {
 
     // the packetOffset and packet will be valid when the header is completely read (i.e.
     // headerOffset==header.length==lengthFieldEndOffset)
-    int packetOffset;
-    byte[] packet;
+    private int packetOffset;
+    private byte[] packet;
 
     final Consumer<byte[]> consumer;
 
@@ -72,6 +72,7 @@ public class PacketDecoder {
             if (headerOffset == 0) { // read the first byte of the header to know what kind of packet it is as well as
                                      // the legnth of the header
                 header[0] = data[offset];
+                headerOffset++;
                 offset++;
                 length--;
                 headerLength = getHeaderLength(header[0]);
@@ -156,6 +157,8 @@ public class PacketDecoder {
      * @return true of the decoder is in the middle of a packet decoding
      */
     public boolean hasIncompletePacket() {
+        System.out.println("headerOffset: "+headerOffset+" headerLength: "+headerLength+" packetOffset: "+packetOffset);
+        
         return (headerOffset > 0) && ((headerOffset < headerLength) || (packetOffset < packet.length));
     }
 

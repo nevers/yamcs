@@ -1,6 +1,6 @@
 package org.yamcs.tctm.ccsds;
 /**
- * Common properties for the three supported transfer frame types
+ * Common properties for the three supported transfer frame types AOS/TM/USLP
  * 
  * @author nm
  *
@@ -8,11 +8,17 @@ package org.yamcs.tctm.ccsds;
 public abstract class AbstractTransferFrame implements TransferFrame {
     final protected int masterChannelId;
     final protected int virtualChannelId;
+    final protected byte[] data;
     
     long vcFrameSeq;
-    byte[] data;
     
-    public AbstractTransferFrame(int masterChannelId, int virtualChannelId) {
+    int dataStart;
+    int dataLength;
+    int ocf;
+    int fps;
+    
+    public AbstractTransferFrame(byte[] data, int masterChannelId, int virtualChannelId) {
+        this.data = data;
         this.masterChannelId = masterChannelId;
         this.virtualChannelId = virtualChannelId;
     }
@@ -59,26 +65,37 @@ public abstract class AbstractTransferFrame implements TransferFrame {
         return data;
     }
 
+    void setDataStart(int ds) {
+        this.dataStart = ds;
+    }
+    
+    
     @Override
     public int getDataStart() {
-        // TODO Auto-generated method stub
-        return 0;
+        return dataStart;
     }
-
 
     @Override
-    public int getFirstSduStart() {
-        // TODO Auto-generated method stub
-        return 0;
+    public int getFirstHeaderPointer() {
+        return fps;
     }
 
+    void setFirstHeaderPointer(int fps) {
+        this.fps = fps;
+    }
+    
+    void setDataLength(int l) {
+        this.dataLength = l;
+    }
 
     @Override
-    public int getDataEnd() {
-        // TODO Auto-generated method stub
-        return 0;
+    public int getDataLength() {
+        return dataLength;
     }
 
+    public void setOcf(int ocf) {
+        this.ocf = ocf;
+    }
 
     
     abstract int getSeqCountWrapArround();

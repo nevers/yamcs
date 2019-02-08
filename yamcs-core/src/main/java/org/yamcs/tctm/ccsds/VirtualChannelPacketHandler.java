@@ -33,13 +33,13 @@ public class VirtualChannelPacketHandler extends AbstractService implements TmPa
     PacketDecoder packetDecoder;
     long idleFrameCount = 0;
     PacketPreprocessor packetPreproc;
-    
-    public VirtualChannelPacketHandler(String yamcsInstance, String packetPreprocessorClassName, Map<String, Object> packetPreprocessorArgs) {
+
+    public VirtualChannelPacketHandler(String yamcsInstance, String packetPreprocessorClassName,
+            Map<String, Object> packetPreprocessorArgs) {
         eventProducer = EventProducerFactory.getEventProducer(yamcsInstance);
         log = LoggingUtils.getLogger(this.getClass(), yamcsInstance);
         packetDecoder = new PacketDecoder(maxPacketLength, p -> sendPacket(p));
     }
-
 
     public void handle(TransferFrame frame) {
         if (frame.containsOnlyIdleData()) {
@@ -48,8 +48,8 @@ public class VirtualChannelPacketHandler extends AbstractService implements TmPa
         }
 
         int dataStart = frame.getDataStart();
-        int sduStart = frame.getFirstSduStart();
-        int dataEnd = frame.getDataEnd();
+        int sduStart = frame.getFirstHeaderPointer();
+        int dataEnd = frame.getDataLength();
         byte[] data = frame.getData();
 
         try {
@@ -78,10 +78,11 @@ public class VirtualChannelPacketHandler extends AbstractService implements TmPa
             eventProducer.sendWarning(e.toString());
         }
     }
-    
+
     private void sendPacket(byte[] p) {
+        System.out.println("bubu packet");
         PacketWithTime pwt = packetPreproc.process(p);
-        if(pwt!=null) {
+        if (pwt != null) {
             tmSink.processPacket(pwt);
         }
     }

@@ -1,12 +1,14 @@
 package org.yamcs.tctm.ccsds;
 
+import org.yamcs.tctm.TcTmException;
+
 /**
  * Exception indicating a frame is corrupted
  * 
  * @author nm
  *
  */
-public class CorruptedFrameException extends Exception {
+public class CorruptedFrameException extends TcTmException {
     public CorruptedFrameException(String msg) {
         super(msg);
     }

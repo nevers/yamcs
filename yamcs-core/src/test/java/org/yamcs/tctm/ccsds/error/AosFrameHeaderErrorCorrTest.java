@@ -41,7 +41,7 @@ public class AosFrameHeaderErrorCorrTest {
     }
 
     private void checkEqual(int vcid, int sig, DecoderResult dr) {
-        assertEquals(vcid, dr.vcid);
+        assertEquals(vcid, dr.gvcid);
         assertEquals(sig, dr.signalingField);
     }
     

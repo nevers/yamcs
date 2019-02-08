@@ -3,7 +3,6 @@ package org.yamcs.tctm;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
-import java.nio.ByteBuffer;
 import java.util.Map;
 
 import org.slf4j.Logger;
@@ -11,9 +10,8 @@ import org.slf4j.LoggerFactory;
 import org.yamcs.ConfigurationException;
 import org.yamcs.YConfiguration;
 import org.yamcs.api.EventProducer;
-import org.yamcs.archive.PacketWithTime;
+import org.yamcs.api.EventProducerFactory;
 import org.yamcs.tctm.ccsds.MasterChannelFrameHandler;
-import org.yamcs.utils.TimeEncoding;
 
 import com.google.common.util.concurrent.AbstractExecutionThreadService;
 
@@ -54,6 +52,8 @@ public class UdpTmFrameLink extends AbstractExecutionThreadService implements Ag
         port = YConfiguration.getInt(args, "port");
         maxLength = 1500;
         datagram = new DatagramPacket(new byte[maxLength], maxLength);
+        frameHandler = new MasterChannelFrameHandler(yamcsInstance, args);
+        eventProducer = EventProducerFactory.getEventProducer(yamcsInstance, this.getClass().getSimpleName(), 10000);
     }
 
     @Override
@@ -71,18 +71,25 @@ public class UdpTmFrameLink extends AbstractExecutionThreadService implements Ag
         while (isRunning()) {
             try {
                 tmSocket.receive(datagram);
+
                 int length = datagram.getLength();
                 if (length < frameHandler.getMinFrameSize()) {
-                    eventProducer.sendWarning("Error processing frame: size "+length+" shorter than minimum allowed "+frameHandler.getMinFrameSize());    
-                } else if (length > frameHandler.getMaxFrameSize()) {
-                    eventProducer.sendWarning("Error processing frame: size "+length+" longer than maximum allowed "+frameHandler.getMaxFrameSize());
-                } else {
-                    frameHandler.handleFrame(datagram.getData(), datagram.getOffset(), length);
+                    eventProducer.sendWarning("Error processing frame: size "+length+" shorter than minimum allowed "+frameHandler.getMinFrameSize());
+                    continue;
                 }
+                if (length > frameHandler.getMaxFrameSize()) {
+                    eventProducer.sendWarning("Error processing frame: size "+length+" longer than maximum allowed "+frameHandler.getMaxFrameSize());
+                    continue;
+                }
+                validDatagramCount++;
+                
+                frameHandler.handleFrame(datagram.getData(), datagram.getOffset(), length);
             } catch (IOException e) {
                 log.warn("exception {} thrown when reading from the UDP socket at port {}", port, e);
             } catch (TcTmException e) {
                 eventProducer.sendWarning("Error processing frame: "+e.toString());
+            } catch (Exception e) {
+                log.error("Error processing frame", e);
             }
             while (disabled) {
                 try {
@@ -97,7 +104,14 @@ public class UdpTmFrameLink extends AbstractExecutionThreadService implements Ag
 
     @Override
     public Status getLinkStatus() {
-        return disabled ? Status.DISABLED : Status.OK;
+        if(disabled) {
+            return Status.DISABLED;
+        }
+        if(state()!=State.FAILED) {
+            return Status.FAILED;
+        }
+        
+        return Status.OK;
     }
 
     /**

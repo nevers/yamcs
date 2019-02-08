@@ -14,10 +14,12 @@ public class AosManagedParameters implements ManagedParameters {
         /** Bitstream Protocol Data Unit */
         B_PDU,
         /** Virtual Channel Access Service Data Unit */
-        VCA_SDU, 
-        /** IDLE frames are those with vcId = 63*/
+        VCA_SDU,
+        /** IDLE frames are those with vcId = 63 */
         IDLE
     };
+
+    final static int VCID_IDLE = 63;
 
     String physicalChannelName;
     int frameLength;
@@ -30,7 +32,7 @@ public class AosManagedParameters implements ManagedParameters {
 
     static class VcManagedParameters {
         int vcId;
-        ServiceType type;
+        ServiceType service;
         boolean ocfPresent;
 
         // if type = M_PDU
@@ -41,12 +43,17 @@ public class AosManagedParameters implements ManagedParameters {
         static VcManagedParameters parseConfig(Map<String, Object> config) {
             VcManagedParameters vmp = new VcManagedParameters();
             vmp.vcId = YConfiguration.getInt(config, "vcId");
-            if (vmp.vcId < 0 || vmp.vcId > 62) {
+            if (vmp.vcId < 0 || vmp.vcId > 63) {
                 throw new ConfigurationException("Invalid vcId: " + vmp.vcId);
             }
-            vmp.type = YConfiguration.getEnum(config, "type", ServiceType.class);
+            vmp.service = YConfiguration.getEnum(config, "service", ServiceType.class);
+            if (vmp.vcId == VCID_IDLE && vmp.service != ServiceType.IDLE) {
+                throw new ConfigurationException(
+                        "vcid " + VCID_IDLE + " is reserved for IDLE frames (please set service: IDLE)");
+            }
+            
             vmp.ocfPresent = YConfiguration.getBoolean(config, "ocfPresent");
-            if (vmp.type == ServiceType.M_PDU) {
+            if (vmp.service == ServiceType.M_PDU) {
                 vmp.maxPacketSize = YConfiguration.getInt(config, "maxPacketSize");
                 if (vmp.maxPacketSize < 7) {
                     throw new ConfigurationException("invalid maxPacketSize: " + vmp.maxPacketSize);
@@ -82,6 +89,14 @@ public class AosManagedParameters implements ManagedParameters {
             }
             amp.vcParams.put(vmp.vcId, vmp);
         }
+
+        if (!amp.vcParams.containsKey(VCID_IDLE)) {
+            VcManagedParameters vmp = new VcManagedParameters();
+            vmp.vcId = 63;
+            vmp.service = ServiceType.IDLE;
+            vmp.ocfPresent = false;
+            amp.vcParams.put(VCID_IDLE, vmp);
+        }
         return amp;
     }
 
@@ -100,11 +115,12 @@ public class AosManagedParameters implements ManagedParameters {
         Map<Integer, VirtualChannelHandler> m = new HashMap<>();
         for (Map.Entry<Integer, VcManagedParameters> me : vcParams.entrySet()) {
             VcManagedParameters vmp = me.getValue();
-            switch (vmp.type) {
+            switch (vmp.service) {
             case B_PDU:
                 throw new UnsupportedOperationException("B_PDU not supported (TODO)");
             case M_PDU:
-                VirtualChannelPacketHandler vcph = new VirtualChannelPacketHandler(yamcsInstance, vmp.packetPreprocessorClassName, vmp.packetPreprocessorArgs);
+                VirtualChannelPacketHandler vcph = new VirtualChannelPacketHandler(yamcsInstance,
+                        vmp.packetPreprocessorClassName, vmp.packetPreprocessorArgs);
                 m.put(vmp.vcId, vcph);
                 break;
             case VCA_SDU:

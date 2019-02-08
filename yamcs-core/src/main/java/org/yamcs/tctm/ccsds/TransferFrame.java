@@ -9,7 +9,23 @@ package org.yamcs.tctm.ccsds;
  * </ul>
  * <p>
  * <p>
- * For the purpose of SDU (e.g. packet) extraction each frame has defined three offsets:<br>
+ * All three of them have the following structure:
+ * <ul>
+ * <li>Primary Header</li>
+ * <li>Insert Zone/Secondary Header</li>
+ * <li>Data Field</li>
+ * <li>Operational Control Field (OCF)</li>
+ * <li>Error Control Field</li>
+ * </ul>
+ * <p>
+ * Note that for USLP, the data field has also a header.
+ * <p>
+ * In the dataStart, and dataLength properties below, only the real data (i.e. excluding the data field header) is considered. 
+ * <p>
+ * 
+ * The idea is that the {@link VirtualChannelHandler} that deals with the data, has to have all the information on how to interpret the data part.
+ * <p>
+ * For the purpose of packet extraction each frame has defined three offsets:<br>
  * dataStart &lt;= firstSduStart &lt; dataEnd
  * <p>
  * <p>
@@ -70,20 +86,20 @@ public interface TransferFrame {
     int getDataStart();
 
     /**
-     * Where in the byte array returned by {@link #getData} starts the first SDU.
+     * Where in the byte array returned by {@link #getData} starts the first packet (assuming this is a frame containing packets).
      * 
-     * Returns -1 if there is no SDU starting in this frame.
+     * Returns -1 if there is no packet starting in this frame.
      * 
-     * @return the offset of the first SDU that starts in this frame or -1 if no SDU starts in this frame
+     * @return the offset of the first packet that starts in this frame or -1 if no packet starts in this frame
      */
-    int getFirstSduStart();
+    int getFirstHeaderPointer();
 
     /**
-     * Where in the byte array returned by {@link #getData} ends the data.
+     * The length of the data.
      * 
      * @return data end
      */
-    int getDataEnd();
+    int getDataLength();
     
     /**
      * 

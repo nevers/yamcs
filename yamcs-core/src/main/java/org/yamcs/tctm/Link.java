@@ -21,7 +21,13 @@ public interface Link {
         /**
          * the link has been disabled by the user (so it's implicitly unavailable)
          */
-        DISABLED;
+        DISABLED,
+        /**
+         * the link has failed (like an internal crash while processing the data)
+         */
+        FAILED
+        ;
+        
     }
 
     /**

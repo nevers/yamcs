@@ -28,8 +28,8 @@ public class AosTransferFrame extends AbstractTransferFrame {
 
     ServiceType type;
 
-    public AosTransferFrame(int masterChannelId, int virtualChannelId) {
-        super(masterChannelId, virtualChannelId);
+    public AosTransferFrame(byte[] data, int masterChannelId, int virtualChannelId) {
+        super(data, masterChannelId, virtualChannelId);
     }
 
     int signalingField;

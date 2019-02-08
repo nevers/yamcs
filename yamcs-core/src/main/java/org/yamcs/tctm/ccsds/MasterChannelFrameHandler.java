@@ -6,7 +6,7 @@ import java.util.Map;
 import org.yamcs.ConfigurationException;
 import org.yamcs.YConfiguration;
 import org.yamcs.tctm.TcTmException;
-import org.yamcs.tctm.ccsds.TransferFrameFactory.CcsdsFrameType;
+import org.yamcs.tctm.ccsds.TransferFrameDecoder.CcsdsFrameType;
 
 /**
  * Handles incoming TM frames by distributing them to different VirtualChannelHandlers
@@ -16,7 +16,7 @@ import org.yamcs.tctm.ccsds.TransferFrameFactory.CcsdsFrameType;
  */
 public class MasterChannelFrameHandler {
     CcsdsFrameType frameType;
-    TransferFrameFactory frameFactory;
+    TransferFrameDecoder frameFactory;
     Map<Integer, VirtualChannelHandler> handlers = new HashMap<>();
     int idleFrameCount;
     int frameCount;
@@ -27,12 +27,12 @@ public class MasterChannelFrameHandler {
      * Constructs based on the configuration
      * @param config
      */
-    MasterChannelFrameHandler(String yamcsInstance, Map<String, Object> config) {
+    public MasterChannelFrameHandler(String yamcsInstance, Map<String, Object> config) {
         frameType = YConfiguration.getEnum(config, "frameType", CcsdsFrameType.class);
         switch(frameType) {
         case AOS:
             AosManagedParameters amp = AosManagedParameters.parseConfig(config);
-            frameFactory = new AosFrameFactory(amp);
+            frameFactory = new AosFrameDecoder(amp);
             params = amp;
             break;
         case TM:
@@ -51,7 +51,7 @@ public class MasterChannelFrameHandler {
     }
 
     public void handleFrame(byte[] data, int offset, int length) throws TcTmException {
-        TransferFrame frame = frameFactory.parse(data, offset, length);
+        TransferFrame frame = frameFactory.decode(data, offset, length);
         frameCount++;
         if(frame.containsOnlyIdleData()) {
             idleFrameCount++;
