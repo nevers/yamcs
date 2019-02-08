@@ -15,7 +15,6 @@ import java.util.logging.LogManager;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.yamcs.tctm.ccsds.TransferFrameFactory.CcsdsFrameType;
 import org.yamcs.utils.TimeEncoding;
 import org.yaml.snakeyaml.Yaml;
 import org.yaml.snakeyaml.error.YAMLException;

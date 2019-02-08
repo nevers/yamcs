@@ -12,7 +12,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.yamcs.tctm.ErrorDetectionWordCalculator;
-import org.yamcs.tctm.ccsds.CrcCciitCalculator;
+import org.yamcs.tctm.ccsds.error.CrcCciitCalculator;
 
 import com.google.common.util.concurrent.AbstractExecutionThreadService;
 
@@ -28,7 +28,7 @@ public class Simulator extends AbstractExecutionThreadService {
     private TmTcLink tmLink;
     private TmTcLink tm2Link;
     private TmTcLink losLink;
-    private UdpAosLink frameLink;   
+    private UdpFrameLink frameLink;   
 
     private boolean los;
     private Date lastLosStart;
@@ -484,7 +484,7 @@ public class Simulator extends AbstractExecutionThreadService {
        this.losLink = losLink;
     }
 
-    public void setFrameLink(UdpAosLink aosLink) {
+    public void setFrameLink(UdpFrameLink aosLink) {
        this.frameLink = aosLink;
     }
 }

@@ -51,6 +51,18 @@ public class SimulatorCommander extends ProcessRunner {
                     "--tm-port", "" + tmPort,
                     "--los-port", "" + losPort));
         }
+        if (userArgs.containsKey("frame")) {
+            Map<String, Object> frameArgs = YConfiguration.getMap(userArgs, "frame");
+            int framePort = YConfiguration.getInt(frameArgs, "tmPort", defaultOptions.tmFramePort);
+            String frameHost = YConfiguration.getString(frameArgs, "tmHost", defaultOptions.tmFrameHost);
+            int frameSize = YConfiguration.getInt(frameArgs, "tmFrameSize", defaultOptions.tmFrameSize);
+            int frameFreq = YConfiguration.getInt(frameArgs, "tmFrameFreq", defaultOptions.tmFrameFreq);
+            cmdl.addAll(Arrays.asList("--tm-frame-host", "" + frameHost,
+                    "--tm-frame-port", "" + framePort,
+                    "--tm-frame-size", "" + frameSize,
+                    "--tm-frame-freq", "" + frameFreq));
+            
+        }
         if (userArgs.containsKey("perfTest")) {
             Map<String, Object> yamcsArgs = YConfiguration.getMap(userArgs, "perfTest");
             int numPackets = YConfiguration.getInt(yamcsArgs, "numPackets", defaultOptions.perfNp);
@@ -136,9 +148,9 @@ public class SimulatorCommander extends ProcessRunner {
         telnetServer.setPort(runtimeOptions.telnetPort);
         services.add(telnetServer);
 
-        if (runtimeOptions.aosFrameSize > 0) {
-            UdpAosLink aosLink = new UdpAosLink("AOS", runtimeOptions.aosHost, runtimeOptions.aosPort,
-                    runtimeOptions.aosFrameSize, runtimeOptions.aosFrameFreq);
+        if (runtimeOptions.tmFrameSize > 0) {
+            UdpFrameLink aosLink = new UdpFrameLink("AOS", runtimeOptions.tmFrameHost, runtimeOptions.tmFramePort,
+                    runtimeOptions.tmFrameSize, runtimeOptions.tmFrameFreq);
             services.add(aosLink);
             simulator.setFrameLink(aosLink);
         }
