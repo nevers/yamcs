@@ -8,6 +8,6 @@ public interface ManagedParameters {
 
     int getMinFrameLength();
 
-    Map<Integer, VirtualChannelHandler> createVcHandlers(String yamcsInstance);
+    Map<Integer, VirtualChannelHandler> createVcHandlers(String yamcsInstance, String parentLinkName);
 
 }

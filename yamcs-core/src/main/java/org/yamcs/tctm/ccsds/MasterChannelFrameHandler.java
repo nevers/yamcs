@@ -1,5 +1,6 @@
 package org.yamcs.tctm.ccsds;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -27,8 +28,8 @@ public class MasterChannelFrameHandler {
      * Constructs based on the configuration
      * @param config
      */
-    public MasterChannelFrameHandler(String yamcsInstance, Map<String, Object> config) {
-        frameType = YConfiguration.getEnum(config, "frameType", CcsdsFrameType.class);
+    public MasterChannelFrameHandler(String yamcsInstance, String linkName, YConfiguration config) {
+        frameType = config.getEnum("frameType", CcsdsFrameType.class);
         switch(frameType) {
         case AOS:
             AosManagedParameters amp = AosManagedParameters.parseConfig(config);
@@ -47,7 +48,7 @@ public class MasterChannelFrameHandler {
             default:
                 throw new ConfigurationException("Unsupported frame type '"+frameType+"'");
         }
-        handlers = params.createVcHandlers(yamcsInstance);
+        handlers = params.createVcHandlers(yamcsInstance, linkName);
     }
 
     public void handleFrame(byte[] data, int offset, int length) throws TcTmException {
@@ -71,5 +72,9 @@ public class MasterChannelFrameHandler {
     
     public int getMinFrameSize() {
         return params.getMinFrameLength();
+    }
+
+    public Collection<VirtualChannelHandler> getVcHandlers() {
+        return handlers.values();
     }
 }

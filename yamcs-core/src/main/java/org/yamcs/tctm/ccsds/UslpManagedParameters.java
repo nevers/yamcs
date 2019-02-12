@@ -2,6 +2,8 @@ package org.yamcs.tctm.ccsds;
 
 import java.util.Map;
 
+import org.yamcs.YConfiguration;
+
 public class UslpManagedParameters implements ManagedParameters {
     String physicalChannelName;
     boolean fixedLength; //or variable length
@@ -38,7 +40,7 @@ public class UslpManagedParameters implements ManagedParameters {
         SduType sduType;
         int maxPacketLength;
     }
-    public static UslpManagedParameters parseConfig(Map<String, Object> config) {
+    public static UslpManagedParameters parseConfig(YConfiguration config) {
         // TODO Auto-generated method stub
         return null;
     }
@@ -55,7 +57,7 @@ public class UslpManagedParameters implements ManagedParameters {
         return 0;
     }
     @Override
-    public Map<Integer, VirtualChannelHandler> createVcHandlers(String yamcsInstance) {
+    public Map<Integer, VirtualChannelHandler> createVcHandlers(String yamcsInstance, String linkName) {
         // TODO Auto-generated method stub
         return null;
     }

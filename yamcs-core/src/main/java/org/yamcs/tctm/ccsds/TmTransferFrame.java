@@ -13,8 +13,8 @@ import org.yamcs.tctm.ccsds.TmManagedParameters.FrameType;
  */
 public class TmTransferFrame extends AbstractTransferFrame {
     FrameType frameType;
-    public TmTransferFrame(int masterChannelId, int virtualChannelId) {
-        super(masterChannelId, virtualChannelId);
+    public TmTransferFrame(byte[] data, int masterChannelId, int virtualChannelId) {
+        super(data, masterChannelId, virtualChannelId);
     }
 
     

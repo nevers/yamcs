@@ -3,7 +3,8 @@ package org.yamcs.tctm;
 import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
-import java.util.Map;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -12,6 +13,7 @@ import org.yamcs.YConfiguration;
 import org.yamcs.api.EventProducer;
 import org.yamcs.api.EventProducerFactory;
 import org.yamcs.tctm.ccsds.MasterChannelFrameHandler;
+import org.yamcs.tctm.ccsds.VirtualChannelHandler;
 
 import com.google.common.util.concurrent.AbstractExecutionThreadService;
 
@@ -39,6 +41,8 @@ public class UdpTmFrameLink extends AbstractExecutionThreadService implements Ag
     String name;
     MasterChannelFrameHandler frameHandler;
     EventProducer eventProducer;
+    YConfiguration config;
+    List<Link> subLinks;
     
     /**
      * Creates a new UDP Frame Data Link
@@ -46,14 +50,22 @@ public class UdpTmFrameLink extends AbstractExecutionThreadService implements Ag
      * @throws ConfigurationException
      *             if port is not defined in the configuration
      */
-    public UdpTmFrameLink(String instance, String name, Map<String, Object> args) throws ConfigurationException {
+    public UdpTmFrameLink(String instance, String name, YConfiguration args) throws ConfigurationException {
         this.yamcsInstance = instance;
         this.name = name;
-        port = YConfiguration.getInt(args, "port");
+        port = args.getInt("port");
         maxLength = 1500;
         datagram = new DatagramPacket(new byte[maxLength], maxLength);
-        frameHandler = new MasterChannelFrameHandler(yamcsInstance, args);
+        frameHandler = new MasterChannelFrameHandler(yamcsInstance, name, args);
         eventProducer = EventProducerFactory.getEventProducer(yamcsInstance, this.getClass().getSimpleName(), 10000);
+        subLinks = new ArrayList<>();
+        for(VirtualChannelHandler vch: frameHandler.getVcHandlers()) {
+            if(vch instanceof Link) {
+                Link l = (Link)vch;
+                subLinks.add(l);
+                l.setParent(this);
+            }
+        }
     }
 
     @Override
@@ -74,20 +86,22 @@ public class UdpTmFrameLink extends AbstractExecutionThreadService implements Ag
 
                 int length = datagram.getLength();
                 if (length < frameHandler.getMinFrameSize()) {
-                    eventProducer.sendWarning("Error processing frame: size "+length+" shorter than minimum allowed "+frameHandler.getMinFrameSize());
+                    eventProducer.sendWarning("Error processing frame: size " + length
+                            + " shorter than minimum allowed " + frameHandler.getMinFrameSize());
                     continue;
                 }
                 if (length > frameHandler.getMaxFrameSize()) {
-                    eventProducer.sendWarning("Error processing frame: size "+length+" longer than maximum allowed "+frameHandler.getMaxFrameSize());
+                    eventProducer.sendWarning("Error processing frame: size " + length + " longer than maximum allowed "
+                            + frameHandler.getMaxFrameSize());
                     continue;
                 }
                 validDatagramCount++;
-                
+
                 frameHandler.handleFrame(datagram.getData(), datagram.getOffset(), length);
             } catch (IOException e) {
                 log.warn("exception {} thrown when reading from the UDP socket at port {}", port, e);
             } catch (TcTmException e) {
-                eventProducer.sendWarning("Error processing frame: "+e.toString());
+                eventProducer.sendWarning("Error processing frame: " + e.toString());
             } catch (Exception e) {
                 log.error("Error processing frame", e);
             }
@@ -104,13 +118,13 @@ public class UdpTmFrameLink extends AbstractExecutionThreadService implements Ag
 
     @Override
     public Status getLinkStatus() {
-        if(disabled) {
+        if (disabled) {
             return Status.DISABLED;
         }
-        if(state()!=State.FAILED) {
+        if (state() == State.FAILED) {
             return Status.FAILED;
         }
-        
+
         return Status.OK;
     }
 
@@ -156,5 +170,20 @@ public class UdpTmFrameLink extends AbstractExecutionThreadService implements Ag
     @Override
     public long getDataOutCount() {
         return 0;
+    }
+
+    @Override
+    public List<Link> getSubLinks() {
+        return subLinks;
+    }
+
+    @Override
+    public YConfiguration getConfig() {
+        return config;
+    }
+
+    @Override
+    public String getName() {
+        return name;
     }
 }

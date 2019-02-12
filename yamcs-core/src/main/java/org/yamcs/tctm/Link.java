@@ -1,5 +1,6 @@
 package org.yamcs.tctm;
 
+import org.yamcs.YConfiguration;
 
 /**
  * A source of data into yamcs; Currently TM, TC and Parameter
@@ -57,5 +58,31 @@ public interface Link {
     public long getDataInCount();
 
     public long getDataOutCount();
-
+    
+    /**
+     * Return the name of the link
+     * @return
+     */
+    public String getName();
+    
+    /**
+     * 
+     * @return the config (args) used when creating the link
+     */
+    public YConfiguration getConfig();
+    
+    /**
+     * If this link is a sublink of an aggregated link, get the parent link.
+     * @return
+     */
+    default AggregatedDataLink getParent() {
+        return null;
+    }
+    
+    /**
+     * If this link is a sublink of an aggregated link, get the parent link.
+     * @return
+     */
+    default void setParent(AggregatedDataLink parent) {
+    }
 }

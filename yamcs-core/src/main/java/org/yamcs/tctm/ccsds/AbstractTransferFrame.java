@@ -13,7 +13,7 @@ public abstract class AbstractTransferFrame implements TransferFrame {
     long vcFrameSeq;
     
     int dataStart;
-    int dataLength;
+    int dataEnd;
     int ocf;
     int fps;
     
@@ -84,13 +84,13 @@ public abstract class AbstractTransferFrame implements TransferFrame {
         this.fps = fps;
     }
     
-    void setDataLength(int l) {
-        this.dataLength = l;
+    void setDataEnd(int offset) {
+        this.dataEnd = offset;
     }
 
     @Override
-    public int getDataLength() {
-        return dataLength;
+    public int getDataEnd() {
+        return dataEnd;
     }
 
     public void setOcf(int ocf) {

@@ -34,56 +34,68 @@ public class AosManagedParameters implements ManagedParameters {
         int vcId;
         ServiceType service;
         boolean ocfPresent;
+        //if set to true, the encapsulation packets sent to the preprocessor will be without the encapsulation header(CCSDS 133.1-B-2)
+        boolean stripEncapsulationHeader;
 
         // if type = M_PDU
-        int maxPacketSize;
+        int maxPacketLength;
         String packetPreprocessorClassName;
         Map<String, Object> packetPreprocessorArgs;
+        final YConfiguration config;
 
-        static VcManagedParameters parseConfig(Map<String, Object> config) {
-            VcManagedParameters vmp = new VcManagedParameters();
-            vmp.vcId = YConfiguration.getInt(config, "vcId");
-            if (vmp.vcId < 0 || vmp.vcId > 63) {
-                throw new ConfigurationException("Invalid vcId: " + vmp.vcId);
+        public VcManagedParameters(YConfiguration config) {
+            this.config = config;
+            
+            vcId = config.getInt("vcId");
+            if (vcId < 0 || vcId > 63) {
+                throw new ConfigurationException("Invalid vcId: " + vcId);
             }
-            vmp.service = YConfiguration.getEnum(config, "service", ServiceType.class);
-            if (vmp.vcId == VCID_IDLE && vmp.service != ServiceType.IDLE) {
+            service = config.getEnum("service", ServiceType.class);
+            if (vcId == VCID_IDLE && service != ServiceType.IDLE) {
                 throw new ConfigurationException(
                         "vcid " + VCID_IDLE + " is reserved for IDLE frames (please set service: IDLE)");
             }
             
-            vmp.ocfPresent = YConfiguration.getBoolean(config, "ocfPresent");
-            if (vmp.service == ServiceType.M_PDU) {
-                vmp.maxPacketSize = YConfiguration.getInt(config, "maxPacketSize");
-                if (vmp.maxPacketSize < 7) {
-                    throw new ConfigurationException("invalid maxPacketSize: " + vmp.maxPacketSize);
+            ocfPresent = config.getBoolean("ocfPresent");
+            if (service == ServiceType.M_PDU) {
+                maxPacketLength = config.getInt("maxPacketLength");
+                if (maxPacketLength < 7) {
+                    throw new ConfigurationException("invalid maxPacketLength: " + maxPacketLength);
                 }
             }
-            return vmp;
+            packetPreprocessorClassName = config.getString("packetPreprocessorClassName");
+            if(config.containsKey("packetPreprocessorArgs")) {
+                packetPreprocessorArgs = config.getMap("packetPreprocessorArgs");
+            }
+            stripEncapsulationHeader = config.getBoolean("stripEncapsulationHeader", false);
+        }
+
+        VcManagedParameters() {
+            config = YConfiguration.emptyConfig();
         }
     }
 
-    public static AosManagedParameters parseConfig(Map<String, Object> config) {
+    public static AosManagedParameters parseConfig(YConfiguration config) {
         AosManagedParameters amp = new AosManagedParameters();
 
         if (config.containsKey("physicalChannelName")) {
-            amp.physicalChannelName = YConfiguration.getString(config, "physicalChannelName");
+            amp.physicalChannelName = config.getString("physicalChannelName");
         }
-        amp.frameLength = YConfiguration.getInt(config, "frameLength");
+        amp.frameLength = config.getInt("frameLength");
         if (amp.frameLength < 8 || amp.frameLength > 0xFFFF) {
             throw new ConfigurationException("Invalid frame length " + amp.frameLength);
         }
-        amp.frameHeaderErrorControlPresent = YConfiguration.getBoolean(config, "frameHeaderErrorControlPresent");
-        amp.frameErroControlPresent = YConfiguration.getBoolean(config, "frameErroControlPresent");
-        amp.insertZoneLength = YConfiguration.getInt(config, "insertZoneLength");
+        amp.frameHeaderErrorControlPresent = config.getBoolean("frameHeaderErrorControlPresent");
+        amp.frameErroControlPresent = config.getBoolean("frameErroControlPresent");
+        amp.insertZoneLength = config.getInt("insertZoneLength");
 
         if (amp.insertZoneLength < 0 || amp.insertZoneLength > amp.frameLength - 6) {
             throw new ConfigurationException("Invalid insert zone length " + amp.insertZoneLength);
         }
 
-        List<Map<String, Object>> l = YConfiguration.getList(config, "virtualChannels");
-        for (Map<String, Object> m : l) {
-            VcManagedParameters vmp = VcManagedParameters.parseConfig(m);
+        List<YConfiguration> l = config.getConfigList("virtualChannels");
+        for (YConfiguration yc : l) {
+            VcManagedParameters vmp = new VcManagedParameters(yc);
             if (amp.vcParams.containsKey(vmp.vcId)) {
                 throw new ConfigurationException("duplicate configuration of vcId " + vmp.vcId);
             }
@@ -111,7 +123,7 @@ public class AosManagedParameters implements ManagedParameters {
     }
 
     @Override
-    public Map<Integer, VirtualChannelHandler> createVcHandlers(String yamcsInstance) {
+    public Map<Integer, VirtualChannelHandler> createVcHandlers(String yamcsInstance, String linkName) {
         Map<Integer, VirtualChannelHandler> m = new HashMap<>();
         for (Map.Entry<Integer, VcManagedParameters> me : vcParams.entrySet()) {
             VcManagedParameters vmp = me.getValue();
@@ -119,8 +131,7 @@ public class AosManagedParameters implements ManagedParameters {
             case B_PDU:
                 throw new UnsupportedOperationException("B_PDU not supported (TODO)");
             case M_PDU:
-                VirtualChannelPacketHandler vcph = new VirtualChannelPacketHandler(yamcsInstance,
-                        vmp.packetPreprocessorClassName, vmp.packetPreprocessorArgs);
+                VirtualChannelPacketHandler vcph = new VirtualChannelPacketHandler(yamcsInstance, linkName+".vc"+vmp.vcId, vmp);
                 m.put(vmp.vcId, vcph);
                 break;
             case VCA_SDU:

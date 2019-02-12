@@ -5,6 +5,7 @@ import java.util.function.Consumer;
 import org.yamcs.tctm.PacketTooLongException;
 import org.yamcs.tctm.TcTmException;
 import org.yamcs.utils.ByteArrayUtils;
+import org.yamcs.utils.StringConverter;
 
 /**
  * Receives data chunk by chunk and assembles it into packets. Two types of packets are supported:
@@ -62,6 +63,11 @@ public class PacketDecoder {
 
     final Consumer<byte[]> consumer;
 
+    private boolean skipIdlePackets = true;
+    private boolean stripEncapsulationHeader = false;
+
+    final static byte[] ZERO_BYTES = new byte[0];
+    
     public PacketDecoder(int maxPacketLength, Consumer<byte[]> consumer) {
         this.maxPacketLength = maxPacketLength;
         this.consumer = consumer;
@@ -70,17 +76,21 @@ public class PacketDecoder {
     public void process(byte[] data, int offset, int length) throws TcTmException {
         while (length > 0) {
             if (headerOffset == 0) { // read the first byte of the header to know what kind of packet it is as well as
-                                     // the legnth of the header
                 byte d0 = data[offset];
                 offset++;
                 length--;
                 headerLength = getHeaderLength(d0);
+                header[0] = d0;
                 if (headerLength == 1) {
                     // special case, encapsulation packet of size 1, send the packet and reset the header
-                    consumer.accept(new byte[] { d0 });
+                    if(stripEncapsulationHeader) {
+                        packet = ZERO_BYTES;
+                    } else {
+                        packet = new byte[] { d0 };
+                    }
+                    sendToConsumer();
                     headerOffset = 0;
                 } else {
-                    header[0] = d0;
                     headerOffset++;
                 }
             } else if (headerOffset < headerLength) { // reading the header
@@ -99,11 +109,28 @@ public class PacketDecoder {
                 packetOffset += n;
                 length -= n;
                 if (packetOffset == packet.length) {
-                    consumer.accept(packet);
+                    sendToConsumer();
                     packet = null;
                     headerOffset = 0;
                 }
             }
+        }
+    }
+
+    private static boolean isIdle(byte[] header) {
+        int b0 = header[0] & 0xFF;
+        int pv = b0 >>> 5;
+
+        if (pv == PACKET_VERSION_CCSDS) {
+            return ((ByteArrayUtils.decodeShort(header, 0) & 0x7FF) == 0x7FF);
+        } else {
+            return ((b0 & 0x1C) == 0);
+        }
+    }
+
+    private void sendToConsumer() {
+        if (!skipIdlePackets || !isIdle(header)) {
+            consumer.accept(packet);
         }
     }
 
@@ -124,16 +151,33 @@ public class PacketDecoder {
         if (packetLength > maxPacketLength) {
             throw new PacketTooLongException(maxPacketLength, packetLength);
         } else if (packetLength < headerLength) {
-            throw new TcTmException("Invalid packet length " + packetLength + " (it is smaller than the header length)");
+            throw new TcTmException(
+                    "Invalid packet length " + packetLength + " (it is smaller than the header length)");
         }
-        packet = new byte[packetLength];
-        System.arraycopy(header, 0, packet, 0, headerLength);
-        if (packetLength == headerLength) {
-            consumer.accept(packet);
-            headerOffset = 0;
+        if (stripEncapsulationHeader && isEncapsulation(header)) {
+            if (packetLength == headerLength) {
+                packet = ZERO_BYTES;
+                sendToConsumer();
+                headerOffset = 0;
+            } else {
+                packet = new byte[packetLength-headerLength];
+                packetOffset = 0;
+            }
         } else {
-            packetOffset = headerLength;
+            packet = new byte[packetLength];
+            System.arraycopy(header, 0, packet, 0, headerLength);
+            if (packetLength == headerLength) {
+                sendToConsumer();
+                headerOffset = 0;
+            } else {
+                packetOffset = headerLength;
+            }
         }
+    }
+
+    private static boolean isEncapsulation(byte[] header) {
+        int pv = (header[0] & 0xFF) >>> 5;
+        return (pv==PACKET_VERSION_ENCAPSULATION);
     }
 
     // decodes the packet length from the header
@@ -172,6 +216,44 @@ public class PacketDecoder {
      */
     public boolean hasIncompletePacket() {
         return (headerOffset > 0) && ((headerOffset < headerLength) || (packetOffset < packet.length));
+    }
+
+    /**
+     * 
+     * @return true of the idle packets are skipped (i.e. not sent to the consumer)
+     */
+    public boolean skipIdlePackets() {
+        return skipIdlePackets;
+    }
+
+    /**
+     * Skip or not the idle packets. If true (default), the idle packets are not being send to the consumers.
+     * 
+     * @param skipIdlePackets
+     */
+    public void skipIdlePackets(boolean skipIdlePackets) {
+        this.skipIdlePackets = skipIdlePackets;
+    }
+
+    /**
+     * 
+     * @return true if the header of the encapsulated packets will be stripped out.
+     */
+    public boolean stripEncapsulationHeader() {
+        return stripEncapsulationHeader;
+    }
+
+    /**
+     * If set to true, the encapsulation header will be stripped out. This means:
+     * <ul>
+     * <li>the Protocol ID information will be lost.</li>
+     * <li>an empty array buffer will be delivered for the one byte packets (or any other packet of size 0)</li>
+     * </ul>
+     * 
+     * @param stripEncapsulationHeader
+     */
+    public void stripEncapsulationHeader(boolean stripEncapsulationHeader) {
+        this.stripEncapsulationHeader = stripEncapsulationHeader;
     }
 
 }

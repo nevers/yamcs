@@ -95,11 +95,11 @@ public interface TransferFrame {
     int getFirstHeaderPointer();
 
     /**
-     * The length of the data.
+     * The offset in the buffer where the data ends.
      * 
      * @return data end
      */
-    int getDataLength();
+    int getDataEnd();
     
     /**
      * 

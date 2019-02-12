@@ -62,8 +62,8 @@ public class DataLinkInitialiser extends AbstractService implements YamcsService
         timeService = YamcsServer.getTimeService(yamcsInstance);
 
         if (c.containsKey("dataLinks")) {
-            List<Map<String, Object>> links = c.getList("dataLinks");
-            for (Map<String, Object> linkConfig : links) {
+           List<YConfiguration> links = c.getConfigList("dataLinks");
+            for (YConfiguration linkConfig : links) {
                 createDataLink(linkConfig);
             }
         }
@@ -85,41 +85,39 @@ public class DataLinkInitialiser extends AbstractService implements YamcsService
         }
     }
 
-    private void createDataLink(Map<String, Object> linkConfig) throws IOException {
-        String className = YConfiguration.getString(linkConfig, "class");
-        Map<String, Object> args = null;
-        if (linkConfig.containsKey("args")) {
-            args = YConfiguration.getMap(linkConfig, "args");
-        }
-
-        String name = YConfiguration.getString(linkConfig, "name");
+    private void createDataLink(YConfiguration linkConfig) throws IOException {
+        String className = linkConfig.getString("class");
+        YConfiguration args = null;
+        args = linkConfig.getConfig("args");
+        
+        String name = linkConfig.getString("name");
         if (linksByName.containsKey(name)) {
             throw new ConfigurationException(
                     "Instance " + yamcsInstance + ": there is already a link named '" + name + "'");
         }
-        boolean enabledAtStartup = YConfiguration.getBoolean(linkConfig, "enabledAtStartup", true);
-
+       
         Link link;
         if (args != null) {
             link = YObjectLoader.loadObject(className, yamcsInstance, name, args);
         } else {
             link = YObjectLoader.loadObject(className, yamcsInstance, name);
         }
+        configureDataLink(link, args);
+    }
+    
+    void configureDataLink(Link link, YConfiguration linkArgs) {
+        if(linkArgs==null) {
+            linkArgs = YConfiguration.emptyConfig();
+        }
+        boolean enabledAtStartup = linkArgs.getBoolean("enabledAtStartup", true);
 
         if (!enabledAtStartup) {
             link.disable();
         }
 
         Stream s = null;
-        if (linkConfig.containsKey("stream")) {
-            log.warn("DEPRECATION ALERT: Define 'stream' under 'args'.");
-            String streamName = YConfiguration.getString(linkConfig, "stream");
-            s = ydb.getStream(streamName);
-            if (s == null) {
-                throw new ConfigurationException("Cannot find stream '" + streamName + "'");
-            }
-        } else if (args != null && args.containsKey("stream")) {
-            String streamName = YConfiguration.getString(args, "stream");
+        if (linkArgs.containsKey("stream")) {
+            String streamName = linkArgs.getString("stream");
             s = ydb.getStream(streamName);
             if (s == null) {
                 throw new ConfigurationException("Cannot find stream '" + streamName + "'");
@@ -130,7 +128,7 @@ public class DataLinkInitialiser extends AbstractService implements YamcsService
             if (s != null) {
                 Stream stream = s;
                 TmPacketDataLink tmLink = (TmPacketDataLink) link;
-                boolean dropCorrupted = YConfiguration.getBoolean(linkConfig, "dropCorruptedPackets", true);
+                boolean dropCorrupted = linkArgs.getBoolean("dropCorruptedPackets", true);
                 tmLink.setTmSink(pwrt -> {
                     if (pwrt.isCorrupted() && dropCorrupted) {
                         return;
@@ -168,10 +166,16 @@ public class DataLinkInitialiser extends AbstractService implements YamcsService
                 ((ParameterDataLink) link).setParameterSink(new MyPpListener(s));
             }
         }
+        
+        if (link instanceof AggregatedDataLink) {
+            for(Link l: ((AggregatedDataLink) link).getSubLinks()) {
+                configureDataLink(l, l.getConfig());
+            }
+        }
 
-        linksByName.put(name, link);
-        String json = (args != null) ? new Gson().toJson(args) : "";
-        ManagementService.getInstance().registerLink(yamcsInstance, name, json, link);
+        linksByName.put(link.getName(), link);
+        String json = linkArgs.toJson();
+        ManagementService.getInstance().registerLink(yamcsInstance, link.getName(), json, link);
     }
 
     private void createTmDataLinks(List<?> links) throws IOException {

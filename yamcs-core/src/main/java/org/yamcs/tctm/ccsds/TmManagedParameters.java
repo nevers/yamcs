@@ -2,6 +2,8 @@ package org.yamcs.tctm.ccsds;
 
 import java.util.Map;
 
+import org.yamcs.YConfiguration;
+
 public class TmManagedParameters implements ManagedParameters {
     String physicalChannelName;
     int frameLength;
@@ -22,7 +24,7 @@ public class TmManagedParameters implements ManagedParameters {
         String packetPreprocessorClassName;
         Map<String, Object> packetPreprocessorArgs;
     }
-    public static TmManagedParameters parseConfig(Map<String, Object> config) {
+    public static TmManagedParameters parseConfig(YConfiguration config) {
         // TODO Auto-generated method stub
         return null;
     }
@@ -35,7 +37,7 @@ public class TmManagedParameters implements ManagedParameters {
         return frameLength;
     }
     @Override
-    public Map<Integer, VirtualChannelHandler> createVcHandlers(String yamcsInstance) {
+    public Map<Integer, VirtualChannelHandler> createVcHandlers(String yamcsInstance, String linkName) {
         // TODO Auto-generated method stub
         return null;
     }

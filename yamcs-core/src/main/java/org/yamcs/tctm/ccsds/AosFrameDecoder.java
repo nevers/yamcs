@@ -1,5 +1,7 @@
 package org.yamcs.tctm.ccsds;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.yamcs.rs.ReedSolomonException;
 import org.yamcs.tctm.TcTmException;
 import org.yamcs.tctm.ccsds.AosManagedParameters.ServiceType;
@@ -12,7 +14,8 @@ import org.yamcs.utils.ByteArrayUtils;
 public class AosFrameDecoder implements TransferFrameDecoder {
     AosManagedParameters aosParams;
     CrcCciitCalculator crc;
-
+    static Logger log = LoggerFactory.getLogger(TransferFrameDecoder.class.getName());
+    
     public AosFrameDecoder(AosManagedParameters aosParams) {
         this.aosParams = aosParams;
         if (aosParams.frameErroControlPresent) {
@@ -22,13 +25,15 @@ public class AosFrameDecoder implements TransferFrameDecoder {
 
     @Override
     public TransferFrame decode(byte[] data, int offset, int length) throws TcTmException {
-
+        log.trace("decoding frame buf length: {}, dataOffset: {} , dataLength: {}", data.length, offset, length);
+        
         if (length != aosParams.frameLength) {
             throw new TcTmException("Bad frame length " + length + "; expected " + aosParams.frameLength);
         }
         if (aosParams.frameErroControlPresent) {
-            int c1 = crc.compute(data, offset, length - 2);
-            int c2 = ByteArrayUtils.decodeShort(data, offset + length - 2);
+            length -=2;
+            int c1 = crc.compute(data, offset, length);
+            int c2 = ByteArrayUtils.decodeShort(data, offset + length);
             if (c1 != c2) {
                 throw new CorruptedFrameException("Bad CRC computed: " + c1 + " in the frame: " + c2);
             }
@@ -45,7 +50,7 @@ public class AosFrameDecoder implements TransferFrameDecoder {
                 throw new CorruptedFrameException("Failed to Reed-Solomon verify/correct the AOS frame header fields");
             }
             dataOffset += 2;
-            length -= 2;
+            dataLength -= 2;
         } else {
             gvcid = ByteArrayUtils.decodeShort(data, offset);
         }
@@ -56,7 +61,7 @@ public class AosFrameDecoder implements TransferFrameDecoder {
         }
         int masterChannelId = gvcid >> 6;
         int virtualChannelId = gvcid & 0x3F;
-        
+
         VcManagedParameters vmp = aosParams.vcParams.get(virtualChannelId);
         if (vmp == null) {
             throw new TcTmException("Received data for unknown VirtualChannel " + virtualChannelId);
@@ -77,15 +82,18 @@ public class AosFrameDecoder implements TransferFrameDecoder {
             dataLength -= 2;
             if (fhp == 0x7FF) {
                 fhp = -1;
-            } else if (fhp > dataLength) {
-                throw new TcTmException("First header pointer in the M_PDU part of AOS frame is outside the data "
-                        + fhp + ">" + dataLength);
+            } else {
+                fhp += dataOffset;
+                if (fhp > dataLength) {
+                    throw new TcTmException("First header pointer in the M_PDU part of AOS frame is outside the data "
+                            + fhp + ">" + dataLength);
+                }
             }
             atf.setFirstHeaderPointer(fhp);
         }
 
         atf.setDataStart(dataOffset);
-        atf.setDataLength(dataLength);
+        atf.setDataEnd(dataOffset + dataLength);
         return atf;
     }
 

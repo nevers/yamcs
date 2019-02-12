@@ -103,24 +103,25 @@ dataLinks:
           - vcId: 0
             ocfPresent: true
             service: "M_PDU"  #supported services for AOS are M_PDU, B_PDU or VCA_SDU
-            maxPacketSize: 2048
+            maxPacketLength: 2048
             packetPreprocessorClassName: org.yamcs.tctm.IssPacketPreprocessor
             stream: "tm_realtime" #which yamcs stream to put the data on
           - vcId: 1
-            ocfPresent: false
+            ocfPresent: true
             service: "M_PDU"  #supported services for AOS are M_PDU, B_PDU or VCA_SDU
-            maxPacketSize: 2048
+            maxPacketLength: 2048
+            stripEncapsulationHeader: true # drop the header before passing the packet to the preprocessor
             packetPreprocessorClassName: org.yamcs.tctm.GenericPacketPreprocessor
             packetPreprocessorArgs:
                 timestampOffset: 2 #where to read the 8 bytes timestamp offset from
                 seqCountOffset: 10 #where to read the 4 bytes sequence count from
                 errorDetection: #last two bytes are used for the error detection
                    type: "CRC-16-CCIIT" 
-            stream: "tm_realtime2"
+            stream: "tm2_realtime"
           - vcId: 2
-            ocfPresent: false
+            ocfPresent: true
             service: "M_PDU" 
-            maxPacketSize: 2048
+            maxPacketLength: 2048
             packetPreprocessorClassName: org.yamcs.tctm.IssPacketPreprocessor
             stream: "tm_dump"
           #vcId 63 is reserved for idle data and it does not have to be defined

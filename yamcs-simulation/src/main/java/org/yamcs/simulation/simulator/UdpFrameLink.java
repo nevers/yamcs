@@ -40,6 +40,7 @@ public class UdpFrameLink extends AbstractScheduledService {
     final int framesPerSec;
     final static CrcCciitCalculator crc = new CrcCciitCalculator();
     VcSender[] senders = new VcSender[NUM_VC];
+    boolean firstPacketInFrame = true;
 
     private static final Logger log = LoggerFactory.getLogger(UdpFrameLink.class);
 
@@ -60,7 +61,7 @@ public class UdpFrameLink extends AbstractScheduledService {
         }
         idleFrameData = new byte[frameSize];
         writeVcId(idleFrameData, 63);
-        fillAOSCrcs(idleFrameData);
+        fillAOSChecksums(idleFrameData);
     }
 
     @Override
@@ -78,7 +79,7 @@ public class UdpFrameLink extends AbstractScheduledService {
         return Scheduler.newFixedRateSchedule(0, (long) (1e6 / framesPerSec), TimeUnit.MICROSECONDS);
     }
 
-    static void fillAOSCrcs(byte[] data) {
+    static void fillAOSChecksums(byte[] data) {
         // first Reed-Solomon the header
         int gvcid = ByteArrayUtils.decodeShort(data, 0);
         int x = AosFrameHeaderErrorCorr.encode(gvcid, data[5]);
@@ -131,7 +132,12 @@ public class UdpFrameLink extends AbstractScheduledService {
 
     class VcSender {
         final byte[] data;
-        static final int HDR_SIZE = 8;
+        //2 bytes master channel id
+        // 3 bytes virtual channel frame count
+        //1 byte signaling field
+        //2 bytes frame header error control
+        // 2 bytes M_PDU header
+        static final int HDR_SIZE = 10;
         int offset = HDR_SIZE;
         int vcSeqCount = 0;
         int dataEnd;
@@ -146,7 +152,7 @@ public class UdpFrameLink extends AbstractScheduledService {
                 throw new IllegalArgumentException("Invalid virtual channel id " + vcId);
             }
             this.data = new byte[frameSize];
-            dataEnd = frameSize - 2;// last two bytes are the CRC
+            dataEnd = frameSize - 6;// last 6 bytes are the OCF and CRC
             writeVcId(data, vcId);
         }
 
@@ -166,12 +172,11 @@ public class UdpFrameLink extends AbstractScheduledService {
                     return true;
                 }
             }
-            boolean first = true;
             while ((pendingPacket = queue.poll()) != null) {
-                if (first) {
+                System.out.println("here offset: "+offset+" dataEnd: "+dataEnd+" firstPacketInFrame: "+firstPacketInFrame);
+                if (firstPacketInFrame) {
                     writeFhp(offset - HDR_SIZE);
-                } else {
-                    first = false;
+                    firstPacketInFrame = false;
                 }
                 pendingPacketOffset = 0;
                 copyPendingToBuffer();
@@ -190,20 +195,31 @@ public class UdpFrameLink extends AbstractScheduledService {
         }
 
         private void fillIdlePacket() {
-            int n = data.length - offset;
+            int n = dataEnd - offset;
+            System.out.println("writing idle packet of size "+n+" at offset "+offset);
             if (n == 0) {
                 return;
             } else if (n == 1) {
-
+                data[offset] = (byte) 0xE0;
+            } else if (n <254) {
+                data[offset] = (byte) 0xE1;
+                data[offset+1] = (byte) n;
+            } else {
+                data[offset] = (byte) 0xE2;
+                data[offset+1] = 0;
+                ByteArrayUtils.encodeShort(n, data, offset+2);
             }
+            offset+=n;
         }
 
         private void writeFhp(int fhp) {
+            System.out.println("writing fhp: "+fhp);
             ByteArrayUtils.encodeShort(fhp, data, HDR_SIZE - 2);
         }
 
         void copyPendingToBuffer() {
             int length = Math.min(pendingPacket.length - pendingPacketOffset, dataEnd - offset);
+            System.out.println("writing packet of length "+length+" at offset "+offset+" pendingPacketOffset: "+pendingPacketOffset+" first byte: "+pendingPacket[pendingPacketOffset]);;
             System.arraycopy(pendingPacket, pendingPacketOffset, data, offset, length);
             offset += length;
             pendingPacketOffset += length;
@@ -218,11 +234,12 @@ public class UdpFrameLink extends AbstractScheduledService {
             ByteArrayUtils.encodeShort(vcSeqCount & 0xFFFF, data, 3);
             data[5] = (byte) ((1 << 6) + (vcSeqCount >> 24) & 0xF);
 
-            fillAOSCrcs(data);
+            fillAOSChecksums(data);
 
             socket.send(new DatagramPacket(data, data.length, addr, port));
             offset = HDR_SIZE;
             vcSeqCount++;
+            firstPacketInFrame = true;
         }
 
         boolean isEmpty() {

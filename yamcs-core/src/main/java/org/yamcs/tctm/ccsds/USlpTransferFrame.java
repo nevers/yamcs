@@ -12,8 +12,8 @@ package org.yamcs.tctm.ccsds;
  */
 public class USlpTransferFrame extends AbstractTransferFrame {
     
-    public USlpTransferFrame(int masterChannelId, int virtualChannelId) {
-        super(masterChannelId, virtualChannelId);
+    public USlpTransferFrame(byte[] data, int masterChannelId, int virtualChannelId) {
+        super(data, masterChannelId, virtualChannelId);
     }
 
 
