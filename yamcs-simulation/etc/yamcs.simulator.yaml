@@ -94,7 +94,7 @@ dataLinks:
     args:
        port: 10016 #UDP port to listen to
        #one of AOS (CCSDS 732.0-B-3), TM (CCSDS 132.0-B-2) or USLP (CCSDS 732.1-B-1)
-       frameType: "AOS"
+       frameType: "TM"
        spacecraftId: 0xAB
        frameLength: 512
        frameHeaderErrorControlPresent: true #2 bytes of reed-solomon (10,6) in the header of all frames
@@ -103,13 +103,13 @@ dataLinks:
        virtualChannels:
           - vcId: 0
             ocfPresent: true
-            service: "M_PDU"  #supported services for AOS are M_PDU, B_PDU or VCA_SDU
+            service: "PACKET"  #supported services for AOS are M_PDU, B_PDU or VCA_SDU
             maxPacketLength: 2048
             packetPreprocessorClassName: org.yamcs.tctm.IssPacketPreprocessor
             stream: "tm_realtime" #which yamcs stream to put the data on
           - vcId: 1
             ocfPresent: true
-            service: "M_PDU"  #supported services for AOS are M_PDU, B_PDU or VCA_SDU
+            service: "PACKET"  #supported services for AOS are PACKET(M_PDU), B_PDU or VCA_SDU
             maxPacketLength: 2048
             stripEncapsulationHeader: true # drop the header before passing the packet to the preprocessor
             packetPreprocessorClassName: org.yamcs.tctm.GenericPacketPreprocessor
@@ -121,7 +121,7 @@ dataLinks:
             stream: "tm2_realtime"
           - vcId: 2
             ocfPresent: true
-            service: "M_PDU" 
+            service: "PACKET" 
             maxPacketLength: 2048
             packetPreprocessorClassName: org.yamcs.tctm.IssPacketPreprocessor
             stream: "tm_dump"

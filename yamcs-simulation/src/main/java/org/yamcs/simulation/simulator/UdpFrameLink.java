@@ -317,25 +317,31 @@ public class UdpFrameLink extends AbstractScheduledService {
 
     static class TmVcSender extends VcBuilder {
         byte[] idleFrameData;
-
+        int ocfFlag = 1;
+        
         public TmVcSender(int vcId, int frameSize) {
             super(vcId);
             this.data = new byte[frameSize];
-            dataEnd = frameSize - 6; // last 6 bytes are the OCF and CRC
+            dataEnd = frameSize - 4 - 2*ocfFlag; // last 6 bytes are the OCF and CRC
+            writeGvcId(data, vcId);
         }
 
         @Override
         int hdrSize() {
             return 6;
         }
-
+        void writeGvcId(byte[] frameData, int vcId) {
+            ByteArrayUtils.encodeShort((SPACECRAFT_ID << 4) + (vcId<<1) +ocfFlag, frameData, 0);
+        }
         @Override
         void encodeHeaderAndChecksums() {
             // set the frame sequence count
             data[3] = (byte) (vcSeqCount);
 
             // write the first header pointer
-            ByteArrayUtils.encodeShort(firstHeaderPointer, data, 8);
+            ByteArrayUtils.encodeShort(firstHeaderPointer, data, 4);
+            
+            //compute crc
             int x = crc.compute(data, 0, data.length - 2);
             ByteArrayUtils.encodeShort(x, data, data.length - 2);
         }

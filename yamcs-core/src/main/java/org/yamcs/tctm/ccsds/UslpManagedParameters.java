@@ -4,8 +4,7 @@ import java.util.Map;
 
 import org.yamcs.YConfiguration;
 
-public class UslpManagedParameters implements ManagedParameters {
-    String physicalChannelName;
+public class UslpManagedParameters extends ManagedParameters {
     boolean fixedLength; //or variable length
     int frameLength; //if fixedLength=true
     int frameVersionNumber = 12;
@@ -16,7 +15,6 @@ public class UslpManagedParameters implements ManagedParameters {
     
     int fshLength; //0 means not present
     boolean ocfPresent;
-    int spacecraftId;
     
    
     

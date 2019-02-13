@@ -13,7 +13,6 @@ import org.yamcs.tctm.PacketPreprocessor;
 import org.yamcs.tctm.TcTmException;
 import org.yamcs.tctm.TmPacketDataLink;
 import org.yamcs.tctm.TmSink;
-import org.yamcs.tctm.ccsds.AosManagedParameters.VcManagedParameters;
 import org.yamcs.utils.LoggingUtils;
 import org.yamcs.utils.YObjectLoader;
 
@@ -36,19 +35,19 @@ public class VirtualChannelPacketHandler implements TmPacketDataLink, VirtualCha
     PacketPreprocessor packetPreprocessor;
     final String name;
     final VcManagedParameters vmp;
-    
+
     AggregatedDataLink parent;
 
     public VirtualChannelPacketHandler(String yamcsInstance, String name, VcManagedParameters vmp) {
         this.vmp = vmp;
         this.name = name;
-        
+
         eventProducer = EventProducerFactory.getEventProducer(yamcsInstance, this.getClass().getSimpleName(), 10000);
         log = LoggingUtils.getLogger(this.getClass(), yamcsInstance);
-        
+
         packetDecoder = new PacketDecoder(vmp.maxPacketLength, p -> handlePacket(p));
         packetDecoder.stripEncapsulationHeader(vmp.stripEncapsulationHeader);
-        
+
         try {
             if (vmp.packetPreprocessorArgs != null) {
                 packetPreprocessor = YObjectLoader.loadObject(vmp.packetPreprocessorClassName, yamcsInstance,
@@ -66,42 +65,49 @@ public class VirtualChannelPacketHandler implements TmPacketDataLink, VirtualCha
     }
 
     public void handle(TransferFrame frame) {
-        if(log.isTraceEnabled()) {
-            log.trace("Processing frame VC {}, SEQ {}, FHP {}", frame.getVirtualChannelId(), frame.getVcFrameSeq(), frame.getFirstHeaderPointer());
-        }
-        
         if (frame.containsOnlyIdleData()) {
+            if(log.isTraceEnabled()) {
+                log.trace("Dropping idle frame for VC {}", frame.getVirtualChannelId());
+            }
             idleFrameCount++;
             return;
         }
+        
+        if (log.isTraceEnabled()) {
+            log.trace("Processing frame VC {}, SEQ {}, FHP {}, DS {}, DE {}", frame.getVirtualChannelId(), frame.getVcFrameSeq(),
+                    frame.getFirstHeaderPointer(), frame.getDataStart(), frame.getDataEnd());
+        }
+
+        
 
         int dataStart = frame.getDataStart();
-        int sduStart = frame.getFirstHeaderPointer();
+        int packetStart = frame.getFirstHeaderPointer();
         int dataEnd = frame.getDataEnd();
         byte[] data = frame.getData();
-
+        
         try {
             int frameLoss = frame.lostFramesCount(lastFrameSeq);
             lastFrameSeq = frame.getVcFrameSeq();
-            
+
             if (packetDecoder.hasIncompletePacket()) {
                 if (frameLoss != 0) {
                     log.warn("Incomplete packet dropped because of frame loss ");
                     packetDecoder.reset();
                 } else {
-                    if (sduStart != -1) {
-                        packetDecoder.process(data, dataStart, sduStart-dataStart);
+                    if (packetStart != -1) {
+                        packetDecoder.process(data, dataStart, packetStart - dataStart);
                     } else {
-                        packetDecoder.process(data, dataStart, dataEnd-dataStart);
+                        packetDecoder.process(data, dataStart, dataEnd - dataStart);
                     }
                 }
             }
-            if (sduStart != -1) {
+            if (packetStart != -1) {
                 if (packetDecoder.hasIncompletePacket()) {
-                    eventProducer.sendWarning("Incomplete packet decoded when reaching the beginning of another packet");
+                    eventProducer
+                            .sendWarning("Incomplete packet decoded when reaching the beginning of another packet");
                     packetDecoder.reset();
                 }
-                packetDecoder.process(data, sduStart, dataEnd-sduStart);
+                packetDecoder.process(data, packetStart, dataEnd - packetStart);
             }
         } catch (TcTmException e) {
             packetDecoder.reset();
@@ -110,10 +116,10 @@ public class VirtualChannelPacketHandler implements TmPacketDataLink, VirtualCha
     }
 
     private void handlePacket(byte[] p) {
-        if(log.isTraceEnabled()) {
+        if (log.isTraceEnabled()) {
             log.trace("VC {}, SEQ {} decoded packet of length {}", vmp.vcId, lastFrameSeq, p.length);
         }
-        
+
         numPackets++;
         PacketWithTime pwt = packetPreprocessor.process(p);
         if (pwt != null) {
@@ -170,12 +176,12 @@ public class VirtualChannelPacketHandler implements TmPacketDataLink, VirtualCha
     public String getName() {
         return name;
     }
-    
+
     @Override
     public AggregatedDataLink getParent() {
         return parent;
     }
-    
+
     @Override
     public void setParent(AggregatedDataLink parent) {
         this.parent = parent;

@@ -5,7 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.yamcs.rs.ReedSolomonException;
 import org.yamcs.tctm.TcTmException;
 import org.yamcs.tctm.ccsds.AosManagedParameters.ServiceType;
-import org.yamcs.tctm.ccsds.AosManagedParameters.VcManagedParameters;
+import org.yamcs.tctm.ccsds.AosManagedParameters.AosVcManagedParameters;
 import org.yamcs.tctm.ccsds.error.AosFrameHeaderErrorCorr;
 import org.yamcs.tctm.ccsds.error.AosFrameHeaderErrorCorr.DecoderResult;
 import org.yamcs.tctm.ccsds.error.CrcCciitCalculator;
@@ -67,7 +67,7 @@ public class AosFrameDecoder implements TransferFrameDecoder {
         int masterChannelId = gvcid >> 6;
         int virtualChannelId = gvcid & 0x3F;
 
-        VcManagedParameters vmp = aosParams.vcParams.get(virtualChannelId);
+        AosVcManagedParameters vmp = aosParams.vcParams.get(virtualChannelId);
         if (vmp == null) {
             throw new TcTmException("Received data for unknown VirtualChannel " + virtualChannelId);
         }
@@ -83,7 +83,7 @@ public class AosFrameDecoder implements TransferFrameDecoder {
             atf.setOcf(ByteArrayUtils.decodeInt(data, dataOffset + dataLength));
         }
 
-        if (vmp.service == ServiceType.M_PDU) {
+        if (vmp.service == ServiceType.PACKET) {
             int fhp = ByteArrayUtils.decodeShort(data, dataOffset) & 0x7FF;
             dataOffset += 2;
             dataLength -= 2;

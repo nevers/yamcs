@@ -87,12 +87,6 @@ public class IssPacketPreprocessor extends AbstractPacketPreprocessor {
             log.trace("processing packet apid: {}, seqCount:{}, length: {}", apid, seq, packet.length);
         }
         
-        if (((seq - oldseq) & 0x3FFF) != 1) {
-            eventProducer.sendWarning("SEQ_COUNT_JUMP",
-                    "Sequence count jump for apid: "+apid+" old seq: "+oldseq+" newseq: "+seq);
-        }
-        
-
         boolean checksumIndicator = CcsdsPacket.getChecksumIndicator(packet);
         boolean corrupted = false;
 
@@ -115,6 +109,14 @@ public class IssPacketPreprocessor extends AbstractPacketPreprocessor {
             }
         }
 
+        
+        if (((seq - oldseq) & 0x3FFF) != 1) {
+            eventProducer.sendWarning("SEQ_COUNT_JUMP",
+                    "Sequence count jump for apid: "+apid+" old seq: "+oldseq+" newseq: "+seq);
+        }
+        
+
+      
         PacketWithTime pwt = new PacketWithTime(timeService.getMissionTime(), CcsdsPacket.getInstant(packet),
                 apidseqcount, packet);
         pwt.setCorrupted(corrupted);

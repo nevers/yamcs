@@ -2,6 +2,9 @@ package org.yamcs.tctm.ccsds;
 
 import java.util.function.Consumer;
 
+import org.python.jline.internal.Log;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.yamcs.tctm.PacketTooLongException;
 import org.yamcs.tctm.TcTmException;
 import org.yamcs.utils.ByteArrayUtils;
@@ -66,6 +69,8 @@ public class PacketDecoder {
     private boolean stripEncapsulationHeader = false;
 
     final static byte[] ZERO_BYTES = new byte[0];
+    static Logger log = LoggerFactory.getLogger(PacketDecoder.class.getName());
+    
     
     public PacketDecoder(int maxPacketLength, Consumer<byte[]> consumer) {
         this.maxPacketLength = maxPacketLength;
@@ -110,7 +115,7 @@ public class PacketDecoder {
                 if (packetOffset == packet.length) {
                     sendToConsumer();
                     packet = null;
-                    headerOffset = 0;
+                    headerOffset = 0;   
                 }
             }
         }
@@ -130,6 +135,8 @@ public class PacketDecoder {
     private void sendToConsumer() {
         if (!skipIdlePackets || !isIdle(header)) {
             consumer.accept(packet);
+        } else {
+            log.trace("skiping idle packet of size {}", packet.length);
         }
     }
 

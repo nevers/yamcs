@@ -34,7 +34,6 @@ public class UdpTmFrameLink extends AbstractExecutionThreadService implements Ag
 
     private Logger log = LoggerFactory.getLogger(this.getClass().getName());
     final DatagramPacket datagram;
-    final int maxLength;
     String packetPreprocessorClassName;
     Object packetPreprocessorArgs;
     String yamcsInstance;
@@ -54,9 +53,10 @@ public class UdpTmFrameLink extends AbstractExecutionThreadService implements Ag
         this.yamcsInstance = instance;
         this.name = name;
         port = args.getInt("port");
-        maxLength = 1500;
-        datagram = new DatagramPacket(new byte[maxLength], maxLength);
+        
         frameHandler = new MasterChannelFrameHandler(yamcsInstance, name, args);
+        int maxLength = frameHandler.getMaxFrameSize();
+        datagram = new DatagramPacket(new byte[maxLength], maxLength);
         eventProducer = EventProducerFactory.getEventProducer(yamcsInstance, this.getClass().getSimpleName(), 10000);
         subLinks = new ArrayList<>();
         for(VirtualChannelHandler vch: frameHandler.getVcHandlers()) {

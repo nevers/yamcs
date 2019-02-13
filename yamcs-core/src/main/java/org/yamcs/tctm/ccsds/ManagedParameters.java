@@ -2,12 +2,19 @@ package org.yamcs.tctm.ccsds;
 
 import java.util.Map;
 
-public interface ManagedParameters {
+/**
+ * Stores configuration related to Master channels
+ * @author nm
+ *
+ */
+public abstract class ManagedParameters {
+    String physicalChannelName;
+    int spacecraftId;
+    
+    abstract int getMaxFrameLength();
+    
+    abstract int getMinFrameLength();
 
-    int getMaxFrameLength();
-
-    int getMinFrameLength();
-
-    Map<Integer, VirtualChannelHandler> createVcHandlers(String yamcsInstance, String parentLinkName);
+    abstract Map<Integer, VirtualChannelHandler> createVcHandlers(String yamcsInstance, String parentLinkName);
 
 }
