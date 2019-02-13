@@ -1,5 +1,6 @@
 package org.yamcs.tctm.ccsds;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import org.yamcs.YConfiguration;
@@ -7,17 +8,21 @@ import org.yamcs.YConfiguration;
 public class TmManagedParameters implements ManagedParameters {
     String physicalChannelName;
     int frameLength;
-    int frameVersionNumber = 2;
     boolean frameErroControlPresent;
     int fshLength; //0 means not present
-    boolean ocfPresent;
     
-    enum FrameType {PACKET, VCA_SDU }
+    enum ServiceType {
+        PACKET,
+        VCA_SDU
+    };
+    
+    Map<Integer, VcManagedParameters> vcParams = new HashMap<>();
+    
+    
     static class VcManagedParameters {
         int vcId;
-        FrameType type;
+        ServiceType service;
         int fshLength;//0 means not present
-        boolean ocfPresent;
         
         //if type = M_PDU
         int maxPacketSize;
@@ -25,8 +30,8 @@ public class TmManagedParameters implements ManagedParameters {
         Map<String, Object> packetPreprocessorArgs;
     }
     public static TmManagedParameters parseConfig(YConfiguration config) {
-        // TODO Auto-generated method stub
-        return null;
+        TmManagedParameters tmp = new TmManagedParameters();
+        return tmp;
     }
     @Override
     public int getMaxFrameLength() {

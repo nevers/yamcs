@@ -134,7 +134,7 @@ public class Simulator extends AbstractExecutionThreadService {
         } else {
             tmLink.sendPacket(packet.toByteArray());
             if (frameLink != null) {
-             //   frameLink.sendPacket(0, packet.toByteArray());
+                frameLink.queuePacket(0, packet.toByteArray());
             }
 
         }
@@ -144,7 +144,7 @@ public class Simulator extends AbstractExecutionThreadService {
         if (!isLOS()) {
             tm2Link.sendPacket(packet);
             if (frameLink != null) {
-                frameLink.sendPacket(1, encapsulate(packet));
+                frameLink.queuePacket(1, encapsulate(packet));
             }
         }
 
@@ -175,7 +175,7 @@ public class Simulator extends AbstractExecutionThreadService {
                 if (packet != null) {
                     losLink.sendPacket(packet.toByteArray());
                     if (frameLink != null) {
-                        frameLink.sendPacket(2, packet.toByteArray());
+                        frameLink.queuePacket(2, packet.toByteArray());
                     }
                 }
             }

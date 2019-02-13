@@ -1,7 +1,5 @@
 package org.yamcs.tctm.ccsds;
 
-import org.yamcs.tctm.ccsds.TmManagedParameters.FrameType;
-
 /**
  * 
  * @author nm
@@ -12,7 +10,10 @@ import org.yamcs.tctm.ccsds.TmManagedParameters.FrameType;
  *
  */
 public class TmTransferFrame extends AbstractTransferFrame {
-    FrameType frameType;
+    private int shStart = -1;
+    private int shLength =-1;
+    private boolean idle;
+    
     public TmTransferFrame(byte[] data, int masterChannelId, int virtualChannelId) {
         super(data, masterChannelId, virtualChannelId);
     }
@@ -25,7 +26,7 @@ public class TmTransferFrame extends AbstractTransferFrame {
 
     @Override
     public boolean containsOnlyIdleData() {
-        return frameType==FrameType.PACKET;
+        return idle;
     }
 
 
@@ -40,4 +41,45 @@ public class TmTransferFrame extends AbstractTransferFrame {
         return 100;
     }
 
+    
+    /**
+     * 
+     * @return the start offset of the secondary header or -1 if the frame does not have a secondary header
+     */
+    public int getShStart() {
+        return shStart;
+    }
+    
+    
+    /**
+     * Set secondary header start offset. Set to -1 if the frame does not contain a secondary header
+     * @param offset
+     */
+    public void setShStart(int offset) {
+        this.shStart = offset;
+    }
+
+    /**
+     * Return the length of the secondary header in bytes
+     * @return
+     */
+    public int getShLength() {
+        return shLength;
+    }
+    /**
+     * Set secondary header length in bytes
+     * @param length
+     */
+    public void setShLength(int length) {
+        this.shLength = length;
+    }
+
+
+    /**
+     * Set frame as idle
+     * @param idle - if the frame is idle or not
+     */
+    void setIdle(boolean idle) {
+        this.idle = idle;
+    }
 }

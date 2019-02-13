@@ -14,9 +14,7 @@ import org.yamcs.tctm.TcTmException;
 import org.yamcs.tctm.TmPacketDataLink;
 import org.yamcs.tctm.TmSink;
 import org.yamcs.tctm.ccsds.AosManagedParameters.VcManagedParameters;
-import org.yamcs.utils.ByteArrayUtils;
 import org.yamcs.utils.LoggingUtils;
-import org.yamcs.utils.StringConverter;
 import org.yamcs.utils.YObjectLoader;
 
 /**
@@ -29,7 +27,7 @@ public class VirtualChannelPacketHandler implements TmPacketDataLink, VirtualCha
     TmSink tmSink;
     private long numPackets;
     volatile boolean disabled = false;
-    int lastFrameSeq = -1;
+    long lastFrameSeq = -1;
     EventProducer eventProducer;
     int packetLostCount;
     private final Logger log;
@@ -68,7 +66,10 @@ public class VirtualChannelPacketHandler implements TmPacketDataLink, VirtualCha
     }
 
     public void handle(TransferFrame frame) {
-        log.warn("Processing packet frame VC: {} SEQ: {}, FHP: {}", frame.getVirtualChannelId(), frame.getVcFrameSeq(), frame.getFirstHeaderPointer());
+        if(log.isTraceEnabled()) {
+            log.trace("Processing frame VC {}, SEQ {}, FHP {}", frame.getVirtualChannelId(), frame.getVcFrameSeq(), frame.getFirstHeaderPointer());
+        }
+        
         if (frame.containsOnlyIdleData()) {
             idleFrameCount++;
             return;
@@ -79,18 +80,13 @@ public class VirtualChannelPacketHandler implements TmPacketDataLink, VirtualCha
         int dataEnd = frame.getDataEnd();
         byte[] data = frame.getData();
 
-        System.out.println(StringConverter.arrayToHexString(data));
-        System.out.println("dataStart: "+dataStart);
-        System.out.println("sduStart: "+sduStart);
-        System.out.println("dataEnd: "+dataEnd);
-        System.out.println("hasIncomp: "+packetDecoder.hasIncompletePacket());
-        
-        
         try {
             int frameLoss = frame.lostFramesCount(lastFrameSeq);
+            lastFrameSeq = frame.getVcFrameSeq();
+            
             if (packetDecoder.hasIncompletePacket()) {
                 if (frameLoss != 0) {
-                    log.warn("Incomplete SDU dropped because of frame loss");
+                    log.warn("Incomplete packet dropped because of frame loss ");
                     packetDecoder.reset();
                 } else {
                     if (sduStart != -1) {
@@ -100,10 +96,9 @@ public class VirtualChannelPacketHandler implements TmPacketDataLink, VirtualCha
                     }
                 }
             }
-            System.out.println("2 dataStart: " + dataStart + " sduStart: " + sduStart);
             if (sduStart != -1) {
                 if (packetDecoder.hasIncompletePacket()) {
-                    eventProducer.sendWarning("Incomplete SDU decoded when reaching the beginning of another SDU");
+                    eventProducer.sendWarning("Incomplete packet decoded when reaching the beginning of another packet");
                     packetDecoder.reset();
                 }
                 packetDecoder.process(data, sduStart, dataEnd-sduStart);
@@ -115,7 +110,10 @@ public class VirtualChannelPacketHandler implements TmPacketDataLink, VirtualCha
     }
 
     private void handlePacket(byte[] p) {
-        System.out.println("----------------------- handling packet of size "+p.length);
+        if(log.isTraceEnabled()) {
+            log.trace("VC {}, SEQ {} decoded packet of length {}", vmp.vcId, lastFrameSeq, p.length);
+        }
+        
         numPackets++;
         PacketWithTime pwt = packetPreprocessor.process(p);
         if (pwt != null) {

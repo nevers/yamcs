@@ -55,6 +55,11 @@ public abstract class AbstractTransferFrame implements TransferFrame {
             return (int)delta;
         }
     }
+    
+    public void setVcFrameSeq(long seq) {
+        this.vcFrameSeq = seq;
+    }
+    
     @Override
     public long getVcFrameSeq() {
         return vcFrameSeq;

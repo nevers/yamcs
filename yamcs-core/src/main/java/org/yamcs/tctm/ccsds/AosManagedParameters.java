@@ -37,7 +37,7 @@ public class AosManagedParameters implements ManagedParameters {
         //if set to true, the encapsulation packets sent to the preprocessor will be without the encapsulation header(CCSDS 133.1-B-2)
         boolean stripEncapsulationHeader;
 
-        // if type = M_PDU
+        // if service = M_PDU
         int maxPacketLength;
         String packetPreprocessorClassName;
         Map<String, Object> packetPreprocessorArgs;

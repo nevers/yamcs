@@ -19,6 +19,10 @@ public class SimulatorArgs {
     @Parameter(names = "--los-port")
     public int losPort = 10115;
 
+    @Parameter(names = "--tm-frame-type", description = "which frame type to send: TM, AOS or USLP")
+    public String tmFrameType = "AOS";
+    
+    
     @Parameter(names = "--tm-frame-host", description = "the UDP host where to send TM/AOS/USLP frames")
     public String tmFrameHost = "localhost";
     
@@ -29,7 +33,7 @@ public class SimulatorArgs {
     public int tmFrameSize = 0;
     
     @Parameter(names = "--tm-frame-freq", description = "the number of TM frames to send per second")
-    public int tmFrameFreq = 10;
+    public double tmFrameFreq = 10;
     
     
     @Parameter(names = "--perf-np", description = "performance test: number of packets. Set to 0 to disable sending the performance packets")

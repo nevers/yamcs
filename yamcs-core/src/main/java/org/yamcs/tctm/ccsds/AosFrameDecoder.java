@@ -11,6 +11,11 @@ import org.yamcs.tctm.ccsds.error.AosFrameHeaderErrorCorr.DecoderResult;
 import org.yamcs.tctm.ccsds.error.CrcCciitCalculator;
 import org.yamcs.utils.ByteArrayUtils;
 
+/**
+ * Decodes frames as per CCSDS 732.0-B-3
+ * @author nm
+ *
+ */
 public class AosFrameDecoder implements TransferFrameDecoder {
     AosManagedParameters aosParams;
     CrcCciitCalculator crc;
@@ -71,6 +76,8 @@ public class AosFrameDecoder implements TransferFrameDecoder {
         dataLength -= aosParams.insertZoneLength;
 
         AosTransferFrame atf = new AosTransferFrame(data, masterChannelId, virtualChannelId);
+        atf.setVcFrameSeq(ByteArrayUtils.decode3Bytes(data, offset+2));
+        
         if (vmp.ocfPresent) {
             dataLength -= 4;
             atf.setOcf(ByteArrayUtils.decodeInt(data, dataOffset + dataLength));
@@ -86,7 +93,7 @@ public class AosFrameDecoder implements TransferFrameDecoder {
                 fhp += dataOffset;
                 if (fhp > dataLength) {
                     throw new TcTmException("First header pointer in the M_PDU part of AOS frame is outside the data "
-                            + fhp + ">" + dataLength);
+                            + (fhp-dataOffset) + ">" + (dataLength-dataOffset));
                 }
             }
             atf.setFirstHeaderPointer(fhp);

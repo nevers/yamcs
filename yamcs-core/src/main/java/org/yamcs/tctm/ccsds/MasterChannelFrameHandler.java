@@ -38,7 +38,7 @@ public class MasterChannelFrameHandler {
             break;
         case TM:
             TmManagedParameters tmp = TmManagedParameters.parseConfig(config);
-        //    frameFactory = new TmFrameFactory(amp);
+            frameFactory = new TmFrameDecoder(tmp);
             params = tmp;
             break;
         case USLP:

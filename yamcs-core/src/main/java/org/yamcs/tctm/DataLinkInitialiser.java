@@ -102,17 +102,19 @@ public class DataLinkInitialiser extends AbstractService implements YamcsService
         } else {
             link = YObjectLoader.loadObject(className, yamcsInstance, name);
         }
+        
+        boolean enabledAtStartup = linkConfig.getBoolean("enabledAtStartup", true);
+
+        if (!enabledAtStartup) {
+            link.disable();
+        }
+        
         configureDataLink(link, args);
     }
     
     void configureDataLink(Link link, YConfiguration linkArgs) {
         if(linkArgs==null) {
             linkArgs = YConfiguration.emptyConfig();
-        }
-        boolean enabledAtStartup = linkArgs.getBoolean("enabledAtStartup", true);
-
-        if (!enabledAtStartup) {
-            link.disable();
         }
 
         Stream s = null;

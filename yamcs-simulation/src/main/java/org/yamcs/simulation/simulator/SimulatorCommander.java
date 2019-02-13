@@ -53,14 +53,16 @@ public class SimulatorCommander extends ProcessRunner {
         }
         if (userArgs.containsKey("frame")) {
             Map<String, Object> frameArgs = YConfiguration.getMap(userArgs, "frame");
-            int framePort = YConfiguration.getInt(frameArgs, "tmPort", defaultOptions.tmFramePort);
-            String frameHost = YConfiguration.getString(frameArgs, "tmHost", defaultOptions.tmFrameHost);
-            int frameSize = YConfiguration.getInt(frameArgs, "tmFrameSize", defaultOptions.tmFrameSize);
-            int frameFreq = YConfiguration.getInt(frameArgs, "tmFrameFreq", defaultOptions.tmFrameFreq);
-            cmdl.addAll(Arrays.asList("--tm-frame-host", "" + frameHost,
-                    "--tm-frame-port", "" + framePort,
-                    "--tm-frame-size", "" + frameSize,
-                    "--tm-frame-freq", "" + frameFreq));
+            String tmFrameType = YConfiguration.getString(frameArgs, "type", defaultOptions.tmFrameType);
+            int tmFramePort = YConfiguration.getInt(frameArgs, "tmPort", defaultOptions.tmFramePort);
+            String tmFrameHost = YConfiguration.getString(frameArgs, "tmHost", defaultOptions.tmFrameHost);
+            int tmFrameSize = YConfiguration.getInt(frameArgs, "tmFrameSize", defaultOptions.tmFrameSize);
+            double tmFrameFreq = YConfiguration.getDouble(frameArgs, "tmFrameFreq", defaultOptions.tmFrameFreq);
+            cmdl.addAll(Arrays.asList("--tm-frame-type", "" + tmFrameType,
+                    "--tm-frame-host", "" + tmFrameHost,
+                    "--tm-frame-port", "" + tmFramePort,
+                    "--tm-frame-size", "" + tmFrameSize,
+                    "--tm-frame-freq", "" + tmFrameFreq));
             
         }
         if (userArgs.containsKey("perfTest")) {
@@ -149,10 +151,10 @@ public class SimulatorCommander extends ProcessRunner {
         services.add(telnetServer);
 
         if (runtimeOptions.tmFrameSize > 0) {
-            UdpFrameLink aosLink = new UdpFrameLink("AOS", runtimeOptions.tmFrameHost, runtimeOptions.tmFramePort,
+            UdpFrameLink frameLink = new UdpFrameLink(runtimeOptions.tmFrameType, runtimeOptions.tmFrameHost, runtimeOptions.tmFramePort,
                     runtimeOptions.tmFrameSize, runtimeOptions.tmFrameFreq);
-            services.add(aosLink);
-            simulator.setFrameLink(aosLink);
+            services.add(frameLink);
+            simulator.setFrameLink(frameLink);
         }
 
         if (runtimeOptions.perfNp > 0) {

@@ -5,7 +5,6 @@ import java.util.function.Consumer;
 import org.yamcs.tctm.PacketTooLongException;
 import org.yamcs.tctm.TcTmException;
 import org.yamcs.utils.ByteArrayUtils;
-import org.yamcs.utils.StringConverter;
 
 /**
  * Receives data chunk by chunk and assembles it into packets. Two types of packets are supported:

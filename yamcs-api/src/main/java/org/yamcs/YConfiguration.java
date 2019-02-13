@@ -630,6 +630,21 @@ public class YConfiguration {
         }
     }
 
+    
+    static public double getDouble(Map<String, Object> m, String key, double v) throws ConfigurationException {
+        if (!m.containsKey(key)) {
+            return v;
+        }
+        Object o = m.get(key);
+        if (o instanceof Number) {
+            return ((Number) o).doubleValue();
+        } else {
+            throw new ConfigurationException(confPath.get(m), "mapping for key '" + key + "' is of type "
+                    + getUnqualfiedClassName(o) + " and not Integer or Long");
+        }
+    }
+    
+    
     public boolean isList(String key) {
         return isList(root, key);
     }

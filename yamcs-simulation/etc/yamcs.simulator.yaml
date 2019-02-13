@@ -28,6 +28,7 @@ services:
 
 dataLinks:
   - name: tm_realtime
+    enabledAtStartup: false
     class: org.yamcs.tctm.TcpTmDataLink
     args:
       stream: tm_realtime
