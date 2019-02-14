@@ -56,12 +56,12 @@ public class SimulatorCommander extends ProcessRunner {
             String tmFrameType = YConfiguration.getString(frameArgs, "type", defaultOptions.tmFrameType);
             int tmFramePort = YConfiguration.getInt(frameArgs, "tmPort", defaultOptions.tmFramePort);
             String tmFrameHost = YConfiguration.getString(frameArgs, "tmHost", defaultOptions.tmFrameHost);
-            int tmFrameSize = YConfiguration.getInt(frameArgs, "tmFrameSize", defaultOptions.tmFrameSize);
+            int tmFrameSize = YConfiguration.getInt(frameArgs, "tmFrameLength", defaultOptions.tmFrameLength);
             double tmFrameFreq = YConfiguration.getDouble(frameArgs, "tmFrameFreq", defaultOptions.tmFrameFreq);
             cmdl.addAll(Arrays.asList("--tm-frame-type", "" + tmFrameType,
                     "--tm-frame-host", "" + tmFrameHost,
                     "--tm-frame-port", "" + tmFramePort,
-                    "--tm-frame-size", "" + tmFrameSize,
+                    "--tm-frame-length", "" + tmFrameSize,
                     "--tm-frame-freq", "" + tmFrameFreq));
             
         }
@@ -150,9 +150,9 @@ public class SimulatorCommander extends ProcessRunner {
         telnetServer.setPort(runtimeOptions.telnetPort);
         services.add(telnetServer);
 
-        if (runtimeOptions.tmFrameSize > 0) {
+        if (runtimeOptions.tmFrameLength > 0) {
             UdpFrameLink frameLink = new UdpFrameLink(runtimeOptions.tmFrameType, runtimeOptions.tmFrameHost, runtimeOptions.tmFramePort,
-                    runtimeOptions.tmFrameSize, runtimeOptions.tmFrameFreq);
+                    runtimeOptions.tmFrameLength, runtimeOptions.tmFrameFreq);
             services.add(frameLink);
             simulator.setFrameLink(frameLink);
         }

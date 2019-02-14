@@ -12,9 +12,9 @@ public class AosManagedParameters extends ManagedParameters {
         /** Multiplexing Protocol Data Unit */
         PACKET,
         /** Bitstream Protocol Data Unit */
-        B_PDU,
+        // B_PDU,
         /** Virtual Channel Access Service Data Unit */
-        VCA_SDU,
+        // VCA_SDU,
         /** IDLE frames are those with vcId = 63 */
         IDLE
     };
@@ -22,12 +22,11 @@ public class AosManagedParameters extends ManagedParameters {
     final static int VCID_IDLE = 63;
 
     int frameLength;
-   
+
     boolean frameHeaderErrorControlPresent;
     int insertZoneLength; // 0 means insert zone not present
     boolean frameErroControlPresent;
     Map<Integer, AosVcManagedParameters> vcParams = new HashMap<>();
-
 
     public static AosManagedParameters parseConfig(YConfiguration config) {
         AosManagedParameters amp = new AosManagedParameters();
@@ -82,29 +81,21 @@ public class AosManagedParameters extends ManagedParameters {
         for (Map.Entry<Integer, AosVcManagedParameters> me : vcParams.entrySet()) {
             AosVcManagedParameters vmp = me.getValue();
             switch (vmp.service) {
-            case B_PDU:
-                throw new UnsupportedOperationException("B_PDU not supported (TODO)");
             case PACKET:
                 VirtualChannelPacketHandler vcph = new VirtualChannelPacketHandler(yamcsInstance,
                         linkName + ".vc" + vmp.vcId, vmp);
                 m.put(vmp.vcId, vcph);
                 break;
-            case VCA_SDU:
-                throw new UnsupportedOperationException("VCA_SDU not supported (TODO)");
             case IDLE:
                 m.put(vmp.vcId, new IdleFrameHandler());
                 break;
+            default:
+                throw new UnsupportedOperationException(vmp.service + " not supported (TODO)");
             }
         }
         return m;
     }
-    
-    
-    
-    
-    
-    
-    
+
     static class AosVcManagedParameters extends VcManagedParameters {
         ServiceType service;
 
@@ -112,7 +103,7 @@ public class AosManagedParameters extends ManagedParameters {
             super(config);
 
             if (vcId < 0 || vcId > 63) {
-                throw new ConfigurationException("Invalid vcId: " + vcId+". Allowed values are from 0 to 63.");
+                throw new ConfigurationException("Invalid vcId: " + vcId + ". Allowed values are from 0 to 63.");
             }
             service = config.getEnum("service", ServiceType.class);
             if (vcId == VCID_IDLE && service != ServiceType.IDLE) {
@@ -123,7 +114,7 @@ public class AosManagedParameters extends ManagedParameters {
             ocfPresent = config.getBoolean("ocfPresent");
             if (service == ServiceType.PACKET) {
                 parsePacketConfig();
-               
+
             }
         }
 

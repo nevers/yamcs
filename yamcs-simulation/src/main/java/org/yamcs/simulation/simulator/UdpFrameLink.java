@@ -48,21 +48,21 @@ public class UdpFrameLink extends AbstractScheduledService {
 
     InetAddress addr;
 
-    public UdpFrameLink(String frameType, String host, int port, int frameSize, double framesPerSec) {
+    public UdpFrameLink(String frameType, String host, int port, int frameLength, double framesPerSec) {
         this.frameType = frameType;
         this.host = host;
         this.port = port;
-        this.frameSize = frameSize;
+        this.frameSize = frameLength;
         this.framesPerSec = framesPerSec;
 
         if ("AOS".equalsIgnoreCase(frameType)) {
             for (int i = 0; i < NUM_VC; i++) {
-                builders[i] = new AosVcSender(i, frameSize);
+                builders[i] = new AosVcSender(i, frameLength);
             }
-            idleFrameBuilder = new AosVcSender(63, frameSize);
+            idleFrameBuilder = new AosVcSender(63, frameLength);
         } else if ("TM".equalsIgnoreCase(frameType)) {
             for (int i = 0; i < NUM_VC; i++) {
-                builders[i] = new TmVcSender(i, frameSize);
+                builders[i] = new TmVcSender(i, frameLength);
             }
             idleFrameBuilder = builders[0];
         }
@@ -356,6 +356,57 @@ public class UdpFrameLink extends AbstractScheduledService {
 
             return data;
 
+        }
+    }
+    
+    
+    /**
+     * This builds USLP frames with complete primary header, OCF , no insert data, and 32 bits frame count
+     *
+     */
+    static class UslpVcSender extends VcBuilder {
+        byte[] idleFrameData;
+        int ocfFlag = 1;
+        
+        public UslpVcSender(int vcId, int frameLength) {
+            super(vcId);
+            this.data = new byte[frameLength];
+            dataEnd = frameLength - 4 - 2*ocfFlag; // last 6 bytes are the OCF and CRC
+            
+            ByteArrayUtils.encodeInt((12<<28) + (SPACECRAFT_ID << 12) + (vcId<<5) +1, data, 0);
+
+            //frame length
+            ByteArrayUtils.encodeShort(frameLength-1, data, 4);
+            
+            data[6]=0x0C; //ocfFlag = 1, vc frame count = 100(in binary) 
+            
+        }
+
+        @Override
+        int hdrSize() {
+            //11 for the primary header (with a 32 bit frame length)
+            //3 bytes for the data field header
+            return 14;
+        }
+
+        @Override
+        void encodeHeaderAndChecksums() {
+            // set the frame sequence count
+            ByteArrayUtils.encodeInt((int)vcSeqCount, data, 7);
+
+            // write the first header pointer
+            ByteArrayUtils.encodeShort(firstHeaderPointer, data, 12);
+            
+            //compute crc
+            int x = crc.compute(data, 0, data.length - 2);
+            ByteArrayUtils.encodeShort(x, data, data.length - 2);
+        }
+
+        @Override
+        public byte[] getIdleFrame() {
+            vcSeqCount++;
+            encodeHeaderAndChecksums();
+            return data;
         }
     }
 

@@ -1,27 +1,38 @@
 package org.yamcs.tctm.ccsds;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import org.yamcs.YConfiguration;
 
 public class UslpManagedParameters extends ManagedParameters {
-    boolean fixedLength; //or variable length
-    int frameLength; //if fixedLength=true
+    enum FrameErrorCorrection {NONE, CRC16, CRC32};
+    enum COPType {COP_1, COP_P, NONE};
+    
+    enum ServiceType {
+        /** Multiplexing Protocol Data Unit */
+        PACKET,
+        /** IDLE frames are those with vcId = 63 */
+        IDLE
+    };
+    int frameLength; //frame length if fixed or -1 if not fixed
     int frameVersionNumber = 12;
     
     int insertZoneLength; //0 means not present
-    int frameErrorControlLength;//0 means not present, otherwise 2 or 4
     boolean generateOidFrame;
     
     int fshLength; //0 means not present
     boolean ocfPresent;
+    FrameErrorCorrection errorCorrection;
+    Map<Integer, UslpVcManagedParameters> vcParams = new HashMap<>();
+
     
-   
-    
-    enum COPType {COP_1, COP_P, NONE};
-    
-    static class VcManagedParameters {
-        int vcId;
+    static class UslpVcManagedParameters extends VcManagedParameters {
+        public UslpVcManagedParameters(YConfiguration config) {
+            super(config);
+        }
+        ServiceType service;
+
         COPType copInEffect;
         boolean fixedLength; //or variable length
         int vcCountLengthForSeqControlQos;
