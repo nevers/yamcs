@@ -14,7 +14,6 @@ import org.yamcs.YamcsServer;
 import org.yamcs.http.TokenStore.IdentifyResult;
 import org.yamcs.http.api.UserRestHandler;
 import org.yamcs.protobuf.Web.AuthFlow;
-import org.yamcs.protobuf.Web.AuthFlow.Type;
 import org.yamcs.protobuf.Web.AuthInfo;
 import org.yamcs.protobuf.Web.TokenResponse;
 import org.yamcs.security.AuthModule;
@@ -97,15 +96,10 @@ public class AuthHandler extends SimpleChannelInboundHandler<FullHttpRequest> {
         }
     }
 
-    public static AuthInfo createAuthInfo() {
+public static AuthInfo createAuthInfo() {
         AuthInfo.Builder infob = AuthInfo.newBuilder();
         infob.setRequireAuthentication(securityStore.isAuthenticationEnabled());
-        for (AuthModule authModule : securityStore.getAuthModules()) {
-            if (authModule instanceof SpnegoAuthModule) {
-                infob.addFlow(AuthFlow.newBuilder().setType(Type.SPNEGO));
-            }
-        }
-        infob.addFlow(AuthFlow.newBuilder().setType(Type.PASSWORD));
+        infob.setFlow(AuthFlow.newBuilder().setType(securityStore.getAuthFlow()));
         return infob.build();
     }
 

@@ -36,7 +36,6 @@ export class AuthService {
      * to the login page.
      */
     yamcsService.yamcsClient.setHttpInterceptor(async (next: HttpHandler, url: string, init?: RequestInit) => {
-
       let response;
       try {
         // Verify or fetch a token when necessary
@@ -143,14 +142,10 @@ export class AuthService {
     // If server supports spnego, attempt browser negotiation.
     // This is done before any other flows, because it does not
     // require user intervention when successful.
-    let spnego = false;
-    for (const flow of this.authInfo.flow) {
-      if (flow.type === 'SPNEGO') {
-        spnego = true;
-      }
-    }
-    if (spnego) {
+    if (this.authInfo.flow.type === 'SPNEGO') {
       return await this.loginWithSpnego();
+    } else if (this.authInfo.flow.type === 'redirect') {
+      return await this.loginWithRedirect();
     }
 
     this.logout(false);
@@ -179,7 +174,7 @@ export class AuthService {
   }
 
   private async loginWithSpnego() {
-    const response = await fetch('/auth/spnego', {
+    const response = await fetch('/yamcs/auth/spnego', {
       credentials: 'include',
     });
     if (response.status === 200) {
@@ -188,6 +183,23 @@ export class AuthService {
     } else {
       throw new Error('SPNEGO authentication failed');
     }
+  }
+
+  private async loginWithRedirect() {
+    // FIXME the suffix and prefix should come from authInfo
+    const response = await fetch('/yamcs/auth/aces');
+    if (response.status === 200) {
+      const authorizationCode = (await response.text()).trim();
+      return await this.loginWithAuthorizationCode(authorizationCode);
+    } else if(response.status === 404) {
+      this.redirect("/mwl-ui/#!login/next=http://localhost:9000/yamcs/");
+      this.logout(false);
+      throw new Error("redirect failed");
+    }
+  }
+
+  private redirect(url: string) {
+    window.location.href = url;
   }
 
   private loginWithRefreshToken(refreshToken: string) {

@@ -39,12 +39,13 @@ public class SecurityStore {
     private static final Logger log = LoggerFactory.getLogger(SecurityStore.class);
 
     private boolean authenticationEnabled = false;
-
+    
     private List<AuthModule> authModules = new ArrayList<>();
-
+    
     private Map<String, User> users = new HashMap<>();
     private User systemUser;
     private User unauthenticatedUser;
+    private String authFlowType;
 
     private ScheduledExecutorService exec = Executors.newSingleThreadScheduledExecutor();
     private AtomicBoolean dirty = new AtomicBoolean();
@@ -56,6 +57,9 @@ public class SecurityStore {
         YConfiguration config = readConfig();
 
         authenticationEnabled = config.getBoolean("enabled");
+        YConfiguration authFlow = config.getConfig("authFlow");
+        authFlowType = authFlow.getString("type");
+
         if (authenticationEnabled) {
             for (YConfiguration moduleConfig : config.getConfigList("authModules")) {
                 AuthModule authModule = loadAuthModule(moduleConfig);
@@ -156,8 +160,12 @@ public class SecurityStore {
         unauthenticatedUserSpec.addOption("superuser", OptionType.BOOLEAN).withDefault(true);
         unauthenticatedUserSpec.addOption("privileges", OptionType.ANY);
 
+        Spec authFlowSpec = new Spec();
+        authFlowSpec.addOption("type", OptionType.STRING).withDefault("password");
+
         Spec spec = new Spec();
         spec.addOption("enabled", OptionType.BOOLEAN).withDefault(false);
+        spec.addOption("authFlow", OptionType.MAP).withSpec(authFlowSpec).withApplySpecDefaults(true);
         spec.addOption("authModules", OptionType.LIST).withElementType(OptionType.MAP).withSpec(moduleSpec);
         spec.addOption("unauthenticatedUser", OptionType.MAP).withSpec(unauthenticatedUserSpec)
                 .withApplySpecDefaults(true);
@@ -186,6 +194,10 @@ public class SecurityStore {
 
     public List<AuthModule> getAuthModules() {
         return authModules;
+    }
+
+    public String getAuthFlow() {
+        return authFlowType;
     }
 
     @SuppressWarnings("unchecked")
