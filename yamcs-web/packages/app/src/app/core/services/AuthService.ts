@@ -192,7 +192,7 @@ export class AuthService {
       const authorizationCode = (await response.text()).trim();
       return await this.loginWithAuthorizationCode(authorizationCode);
     } else if(response.status === 404) {
-      this.redirect("/mwl-ui/#!login/next=http://localhost:9000/yamcs/");
+      this.redirect("/mwl-ui/auth/#!login/next=http://localhost:9000/yamcs/");
       this.logout(false);
       throw new Error("redirect failed");
     }
