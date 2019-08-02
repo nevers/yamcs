@@ -22,6 +22,10 @@ export class LoginPage {
     private route: ActivatedRoute,
     private router: Router,
     private authService: AuthService) {
+
+    if (this.authService.isLoggedIn()) {
+      this.navigateToNextPage();
+    }
   }
 
   doLogin() {
@@ -29,8 +33,7 @@ export class LoginPage {
     const password = this.formGroup.get('password')!.value;
     this.authService.login(username, password).then(() => {
       this.errorMessage$.next(null);
-      const next = this.route.snapshot.queryParams['next'] || '/';
-      this.router.navigateByUrl(next);
+      this.navigateToNextPage();
       return false;
     }).catch(err => {
       this.formGroup.get('password')!.setValue('');
@@ -42,5 +45,10 @@ export class LoginPage {
         this.errorMessage$.next(err.message || 'Error');
       }
     });
+  }
+
+  private navigateToNextPage() {
+    const next = this.route.snapshot.queryParams['next'] || '/';
+    this.router.navigateByUrl(next);
   }
 }

@@ -152,6 +152,16 @@ export class AuthService {
     throw new Error('Could not login automatically');
   }
 
+  public isLoggedIn() {
+    try {
+      // FIXME Relying on exceptions to be thrown to determine the result is frowned upon.
+      this.loginAutomatically(); 
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   /**
    * Logs in via user-provided username/password credentials. This would have
    * to come from our login page.
