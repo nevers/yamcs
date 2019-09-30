@@ -139,6 +139,8 @@ export class AuthService {
       }
     }
 
+    this.logout(false);
+
     // If server supports spnego, attempt browser negotiation.
     // This is done before any other flows, because it does not
     // require user intervention when successful.
@@ -148,14 +150,13 @@ export class AuthService {
       return await this.loginWithRedirect();
     }
 
-    this.logout(false);
     throw new Error('Could not login automatically');
   }
 
   public isLoggedIn() {
     try {
       // FIXME Relying on exceptions to be thrown to determine the result is frowned upon.
-      this.loginAutomatically(); 
+      this.loginAutomatically();
       return true;
     } catch {
       return false;
@@ -197,14 +198,14 @@ export class AuthService {
 
   private async loginWithRedirect() {
     // FIXME the suffix and prefix should come from authInfo
-    const response = await fetch('/yamcs/auth/aces');
+    const response = await fetch('/yamcs/auth/aces?action=login');
     if (response.status === 200) {
       const authorizationCode = (await response.text()).trim();
       return await this.loginWithAuthorizationCode(authorizationCode);
-    } else if(response.status === 404) {
+    } else {
       this.redirect("/mwl-ui/auth/#!login/next=http://localhost:9000/yamcs/");
-      this.logout(false);
-      throw new Error("redirect failed");
+      // this.logout(false);
+      // throw new Error("redirect failed");
     }
   }
 
@@ -244,7 +245,7 @@ export class AuthService {
   /**
    * Clear all data from a previous login session
    */
-  logout(navigateToLoginPage: boolean) {
+  async logout(navigateToLoginPage: boolean) {
     this.clearCookie('access_token');
     this.clearCookie('refresh_token');
 
@@ -253,7 +254,12 @@ export class AuthService {
 
     if (navigateToLoginPage) {
       this.router.navigate(['/login'], { queryParams: { next: '/' } });
+      if (this.authInfo.flow.type === 'redirect') {
+        //FIXME URL should come from authInfo
+        await fetch('/yamcs/auth/aces?action=logout');
+      }
     }
+
   }
 
   private extractClaims(jwt: string): Claims {
